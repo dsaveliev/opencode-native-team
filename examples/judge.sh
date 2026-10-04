@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # judge.sh <run-dir> <out-dir> <name>
 # Deterministic judge: static → tests + coverage → gRPC battery → artifacts.
+# Battery runs in two phases:
+#   A) defaults (health + basic Incr) — verifies documented defaults
+#   B) WINDOW_SECONDS=10 LIMIT=5 (env override is part of the contract) —
+#      deterministic limit/window/concurrency semantics: sequential calls and
+#      the 20-request burst fit into 10s with wide margin; window slide tested
+#      with sleep 11 > 10.
 # Exit 0 = all pass. Writes SCORE to metrics.env.
 set -u
 RUN="${1:?run-dir}"; OUT="${2:?out-dir}"; FW="${3:?name}"
+PORT="${PORT:-18080}"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"; RUN="$(cd "$RUN" && pwd)"
 cd "$RUN" || exit 1
@@ -15,11 +22,11 @@ met()  { printf '%s=%s\n' "$1" "$2" >> "$MET"; }
 pass() { log "- PASS: $1"; PASS_N=$((PASS_N + 1)); }
 fail() { log "- FAIL: $1"; FAIL_N=$((FAIL_N + 1)); met "$2" 1; }
 
-PORT=18080
 G() { grpcurl -max-time 5 -plaintext -format json -d "$2" localhost:$PORT "$1" 2>&1; }
 incr() { G counter.v1.Counter/Incr "{\"key\":\"$1\",\"n\":$2}"; }
 cnt()  { printf '%s' "$1" | sed -n 's/.*"count": *"\{0,1\}\([0-9-]*\)"\{0,1\}.*/\1/p' | head -1; }
 health_ok() { G grpc.health.v1.Health/Check '{}' | grep -q SERVING; }
+stop_srv() { [ -n "${SRV_PID:-}" ] && kill "$SRV_PID" 2>/dev/null; wait "${SRV_PID:-}" 2>/dev/null; SRV_PID=""; }
 
 log "# Judge report: $FW ($(date '+%Y-%m-%d %H:%M'))"
 log
@@ -33,16 +40,17 @@ if make build >/dev/null 2>&1 && [ -x bin/server ]; then pass "make build -> bin
 
 log
 log "## 2. Tests and coverage"
-# True weighted coverage via go tool cover -func (statement-weighted)
+# Statement-weighted coverage: total from `go tool cover -func`,
+# cmd/ aggregate computed directly from the profile (statements, not per-function mean)
 COV_FILE="$OUT/.judge.cov"
 rm -f "$COV_FILE"
-COV_RAW=$(go test -count=1 -race -coverprofile="$COV_FILE" -coverpkg=./... ./cmd/... ./internal/... 2>&1)
+COV_RAW=$(go test -count=1 -race -coverprofile="$COV_FILE" -coverpkg=./... ./... 2>&1)
 COV_EC=$?
 if [ $COV_EC -eq 0 ] && [ -f "$COV_FILE" ]; then
   COV_AGG=$(go tool cover -func="$COV_FILE" 2>/dev/null | awk '/^total:/{gsub("%","",$3); print $3}')
   [ -z "$COV_AGG" ] && COV_AGG="0.0"
-  COV_CMD=$(go tool cover -func="$COV_FILE" 2>/dev/null | awk '/\/cmd\//{gsub("%","",$NF); s+=$NF; n++} END{if(n)printf "%.1f", s/n; else print "0.0"}')
-  pass "go test -race (weighted coverage ${COV_AGG}%, cmd ${COV_CMD}%)"
+  COV_CMD=$(awk '/^mode:/{next} /\/cmd\//{tot+=$2; if($3>0)cov+=$2} END{if(tot>0)printf "%.1f", 100*cov/tot; else print "n/a"}' "$COV_FILE")
+  pass "go test -race (total ${COV_AGG}%, cmd/ ${COV_CMD}% — statement-weighted)"
 else
   COV_AGG="0.0"; COV_CMD="0.0"
   fail "go test -race (exit $COV_EC)" TEST_FAIL
@@ -53,19 +61,31 @@ met COVERAGE "$COV_AGG"
 met COVERAGE_CMD "$COV_CMD"
 
 log
-log "## 3. gRPC battery (port $PORT, defaults: window 2s, limit 5)"
-# Kill only this project's server
+log "## 3. gRPC battery (port $PORT)"
+log "Phase A: documented defaults (PORT=18080 WINDOW=2s LIMIT=5)"
 pkill -f "$RUN/bin/server" 2>/dev/null; sleep 0.5
 SRV_PID=""
 if [ -x bin/server ]; then
-  # Default window (2s) per TASK.md — the judge tests the documented contract
-  ./bin/server > "$OUT/server.log" 2>&1 & SRV_PID=$!
+  ./bin/server > "$OUT/server-defaults.log" 2>&1 & SRV_PID=$!
 fi
 for i in $(seq 1 30); do health_ok && break; sleep 0.5; done
-if health_ok; then pass "health: SERVING"; else fail "health-check (log: $(tail -1 "$OUT/server.log" 2>/dev/null))" HEALTH_FAIL; fi
+if health_ok; then pass "A1 defaults: health SERVING"; else fail "A1 health with defaults (log: $(tail -1 "$OUT/server-defaults.log" 2>/dev/null))" HEALTH_FAIL; fi
+if health_ok; then
+  R=$(incr judge-defaults 1)
+  [ "$(cnt "$R")" = "1" ] && pass "A2 defaults: first Incr -> count=1" || fail "A2 first Incr (resp: $R)" DEFAULTS_FAIL
+fi
+stop_srv
+
+log "Phase B: WINDOW_SECONDS=10 LIMIT=5 (env override per contract)"
+SRV_PID=""
+if [ -x bin/server ]; then
+  WINDOW_SECONDS=10 LIMIT=5 PORT=$PORT ./bin/server > "$OUT/server.log" 2>&1 & SRV_PID=$!
+fi
+for i in $(seq 1 30); do health_ok && break; sleep 0.5; done
+if health_ok; then pass "B1 health: SERVING (WINDOW_SECONDS=10 honored: server up)"; else fail "B1 health with env override" B1_FAIL; fi
 
 if health_ok; then
-  # B2: sequence 1..4 (must complete within 2s window — grpcurl startup ~50ms each, ~1.2s total)
+  # B2: sequence 1..4 — 4 sequential grpcurl calls (~0.5s) << 10s window: deterministic
   SEQ_OK=1
   for i in 1 2 3 4; do R=$(incr judge-k1 1); C=$(cnt "$R"); [ "$C" = "$i" ] || SEQ_OK=0; done
   [ $SEQ_OK = 1 ] && pass "B2 sequence 1..4" || fail "B2 sequence 1..4" B2_FAIL
@@ -74,10 +94,10 @@ if health_ok; then
   # B4: 6th = rejected
   R=$(incr judge-k1 1)
   printf '%s' "$R" | grep -q 'RESOURCE_EXHAUSTED\|ResourceExhausted' && pass "B4 over limit -> RESOURCE_EXHAUSTED" || fail "B4 RESOURCE_EXHAUSTED (resp: $R)" B4_FAIL
-  # B5: window expired (sleep 3 > 2s window)
-  sleep 3
+  # B5: window expired (sleep 11 > 10s window)
+  sleep 11
   R=$(incr judge-k1 1); [ "$(cnt "$R")" = "1" ] && pass "B5 window expired -> count=1" || fail "B5 window slid (resp: $R)" B5_FAIL
-  # B6: concurrent wave — range check (grpcurl startup variance, not exact)
+  # B6: concurrent wave — burst (~1s) << 10s window; range check for grpcurl jitter
   WAVE="$OUT/wave.txt"; : > "$WAVE"
   seq 1 20 | xargs -P 10 -I{} grpcurl -max-time 5 -plaintext -format json \
     -d '{"key":"judge-k2","n":1}' localhost:$PORT counter.v1.Counter/Incr >> "$WAVE" 2>&1
@@ -98,8 +118,7 @@ if health_ok; then
   health_ok && pass "B8 extreme inputs: server alive" || fail "B8 server died" B8_FAIL
   { echo "n=0:"; incr judge-k4 0; echo; echo "empty-key:"; incr "" 1; echo; echo "huge-n=999999:"; incr judge-k5 999999; } > "$OUT/battery-notes.txt" 2>&1
 fi
-[ -n "$SRV_PID" ] && kill "$SRV_PID" 2>/dev/null
-wait "$SRV_PID" 2>/dev/null
+stop_srv
 
 log
 log "## 4. Artifacts"

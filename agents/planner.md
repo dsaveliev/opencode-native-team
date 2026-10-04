@@ -2,7 +2,7 @@
 description: Planner — task analysis and decomposition; does not write code
 mode: subagent
 permission:
-  edit: { "*": "deny" }
+  edit: deny
   task: { "*": "deny" }
   external_directory: deny
   webfetch: deny
@@ -18,9 +18,8 @@ permission:
     "*|*": "deny"
     "*`*": "deny"
     "*$(*": "deny"
-    "*||*": "deny"
     "*>*": "deny"
-    "*>>*": "deny"
+    "*\n*": "deny"
 ---
 You are the team planner. Return: list of ambiguities (question — options —
 recommendation), task decomposition (acceptance criteria + edge cases + verification

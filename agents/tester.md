@@ -4,7 +4,7 @@ mode: subagent
 permission:
   task: { "*": "deny" }
   external_directory: deny
-  edit: { "*": "allow" }
+  edit: allow
   bash:
     "*": "allow"
     "git commit*": "deny"

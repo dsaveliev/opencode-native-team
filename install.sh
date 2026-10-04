@@ -16,55 +16,60 @@ for agent in orchestrator planner coder tester reviewer; do
   echo "  ✓ ${agent}.md"
 done
 
-# Verify and install vendored skills (sha256 from MANIFEST.yaml)
+# Verify vendored skills: every file against MANIFEST.yaml (full sha256 equality,
+# no missing files, no extra files), then install
 if [ -f "${SCRIPT_DIR}/vendor/MANIFEST.yaml" ]; then
   echo "  Verifying vendored skills..."
   python3 - "${SCRIPT_DIR}/vendor" << 'PYEOF'
 import hashlib, os, sys
 
 vendor = sys.argv[1]
-manifest = os.path.join(vendor, 'MANIFEST.yaml')
-
-# Parse skill entries from MANIFEST (simple YAML: name + sha256 pairs)
-expected = {}
-for line in open(manifest):
+manifest = {}
+for line in open(os.path.join(vendor, "MANIFEST.yaml")):
     line = line.strip()
-    if line.startswith('- name:'):
-        name = line.split('name:')[1].strip()
-    elif line.startswith('sha256:') and 'null' not in line:
-        h = line.split('sha256:')[1].strip()
-        if name and h:
-            expected[name] = h
-            name = None
+    if line.startswith("skills/"):
+        path, h = line.split(": ")
+        manifest[path] = h
 
-if not expected:
-    print("  ⚠ MANIFEST has no pinned hashes; skipping verification", file=sys.stderr)
-    sys.exit(0)
+if not manifest:
+    print("  ✗ MANIFEST.yaml is empty", file=sys.stderr)
+    sys.exit(1)
+
+on_disk = set()
+for root, _dirs, files in os.walk(os.path.join(vendor, "skills")):
+    for fn in files:
+        rel = os.path.relpath(os.path.join(root, fn), vendor)
+        on_disk.add(rel)
 
 failed = False
-for name, expected_hash in expected.items():
-    skmd = os.path.join(vendor, 'skills', name, 'SKILL.md')
-    if not os.path.exists(skmd):
-        print(f"  ✗ MISSING: {name}/SKILL.md", file=sys.stderr)
+for rel in sorted(manifest):
+    full = os.path.join(vendor, rel)
+    if not os.path.exists(full):
+        print(f"  ✗ MISSING: {rel}", file=sys.stderr)
         failed = True
         continue
-    actual = hashlib.sha256(open(skmd, 'rb').read()).hexdigest()
-    if actual[:len(expected_hash)] != expected_hash[:len(expected_hash)]:
-        print(f"  ✗ HASH MISMATCH: {name}", file=sys.stderr)
-        print(f"    expected: {expected_hash[:16]}...", file=sys.stderr)
-        print(f"    actual:   {actual[:16]}...", file=sys.stderr)
+    actual = hashlib.sha256(open(full, "rb").read()).hexdigest()
+    if actual != manifest[rel]:  # strict full-length equality
+        print(f"  ✗ HASH MISMATCH: {rel}", file=sys.stderr)
+        print(f"    expected: {manifest[rel]}", file=sys.stderr)
+        print(f"    actual:   {actual}", file=sys.stderr)
         failed = True
     else:
-        print(f"  ✓ {name} (sha256 verified)")
+        print(f"  ✓ {rel}")
+
+for rel in sorted(on_disk - set(manifest)):
+    print(f"  ✗ NOT IN MANIFEST: {rel}", file=sys.stderr)
+    failed = True
 
 if failed:
     print("\n  VERIFICATION FAILED — refusing to install unverified skills", file=sys.stderr)
     sys.exit(1)
+print(f"  ✓ all {len(manifest)} files verified (sha256, full equality)")
 PYEOF
 
   # Only reach here if verification passed (set -e aborts on exit 1)
   cp -R "${SCRIPT_DIR}/vendor/skills/"* "${SKILLS_DIR}/"
-  echo "  ✓ vendored skills installed (hashes verified)"
+  echo "  ✓ vendored skills installed"
 fi
 
 # Install example opencode.json if none exists

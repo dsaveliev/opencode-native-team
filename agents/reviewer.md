@@ -3,7 +3,7 @@ description: Reviewer — 5 axes; analysis and verdict only, no changes allowed
 mode: subagent
 temperature: 0.1
 permission:
-  edit: { "*": "deny" }
+  edit: deny
   task: { "*": "deny" }
   external_directory: deny
   webfetch: deny
@@ -22,9 +22,8 @@ permission:
     "*|*": "deny"
     "*`*": "deny"
     "*$(*": "deny"
-    "*||*": "deny"
     "*>*": "deny"
-    "*>>*": "deny"
+    "*\n*": "deny"
 ---
 You are the reviewer. Five axes: correctness and edge cases, security (injections,
 overflow, permissions), performance, idiomatic style, testability. For each finding:

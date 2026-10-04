@@ -4,7 +4,7 @@ mode: subagent
 permission:
   task: { "*": "deny" }
   external_directory: deny
-  edit: { "*": "allow" }
+  edit: allow
   bash:
     "*": "allow"
     "git commit*": "deny"
@@ -15,7 +15,6 @@ permission:
     "git rebase*": "deny"
     "git am*": "deny"
     "git cherry-pick*": "deny"
-    "git checkout -- *": "deny"
     "git checkout -- *": "deny"
 ---
 You are the developer. Follow test-driven-development: red → green → refactor.

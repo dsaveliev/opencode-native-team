@@ -18,9 +18,9 @@ chat history. This team adds structure: agree on specs before code, write tests
 before implementation, review before merge — enforced through role contracts
 and tool permissions, not framework code.
 
-Won a multi-agent team evaluation against FlowDeck and OpenCode Swarm on:
-token economy (344–521k input vs 5.6M for Swarm), zero operator interventions,
-and deterministic judge score (15/15).
+Won an internal multi-agent bake-off (n=1) against two orchestration frameworks
+on token economy, zero operator interventions, and deterministic judge score.
+Full run data available on request.
 
 ## Quick Start
 
@@ -39,7 +39,7 @@ opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'
 ### Prerequisites
 
 - [opencode](https://opencode.ai) ≥ 1.18
-- [OpenSpec CLI](https://github.com/Fission-AI/OpenSpec) ≥ 1.14 (`brew install openspec`)
+- [OpenSpec CLI](https://github.com/Fission-AI/OpenSpec) ≥ 1.14 (`npm install -g @fission-ai/openspec`)
 - An `opencode.json` with model routing (see `examples/opencode.json.example`)
 
 ## Team
@@ -67,16 +67,17 @@ OpenSpec stage) — deterministic dispatch, no ad-hoc selection.
 
 | Layer | Enforcement |
 |---|---|
-| Subagents can't spawn subagents | `task: deny` in frontmatter |
+| Subagents can't spawn subagents | `task` permission: deny-all, orchestrator allows exactly 4 roles |
 | Subagents can't leave project dir | `external_directory: deny` |
-| Planner/reviewer can't write files | `edit: deny` |
-| Reviewer can't browse the web | `webfetch: deny` |
-| Coder/tester can't commit/push | git command denies in bash permissions |
-| Command injection mitigated | separator pattern denies (`;`, `\|\|`, `` ` ``, etc.) |
+| Read-only roles (planner, reviewer) can't write files | `edit: deny` (scalar — covers all paths) |
+| Read-only roles can't browse the web | `webfetch: deny` |
+| Coder/tester can't commit/push/reset | git command denies in bash permissions |
+| Command injection mitigated | separator pattern denies (`;`, `&&`, `\|`, `` ` ``, `$(`, `>`, newline) |
 
 > ⚠️ Separator patterns are **mitigation**, not a security boundary. The real
-> boundary is: no `edit` for read-only roles, exact allow-patterns for test
-> commands (no trailing `*`), and `task: deny` for all subagents.
+> boundary is: `edit: deny` for read-only roles, exact allow-patterns for test
+> commands (no trailing `*`), and `task: deny` for all subagents. Coder/tester
+> hold broad bash and are trusted accordingly.
 
 ## Language Profiles
 
@@ -102,9 +103,10 @@ An `opencode.json.example` with Go presets is installed by `install.sh`.
 
 ## Vendored Skills
 
-10 skill files from [agent-skills](https://github.com/addyosmani/agent-skills)
-are vendored with SHA-256 hashes in `vendor/MANIFEST.yaml`. `install.sh`
-verifies hashes before copying — if any hash mismatches, installation aborts.
+10 skills (12 files) from [agent-skills](https://github.com/addyosmani/agent-skills)
+are vendored; **every file** — including `references/*.md` — is pinned with a
+SHA-256 in `vendor/MANIFEST.yaml`. `install.sh` verifies full-length hashes and
+rejects missing or unlisted files before copying.
 
 ## Documentation
 
