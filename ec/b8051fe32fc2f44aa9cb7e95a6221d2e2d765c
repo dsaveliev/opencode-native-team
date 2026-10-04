@@ -1,0 +1,27 @@
+agents/coder.md
+  s_d3b744d29667a2::t_b83dc40a553933 6
+agents/orchestrator.md
+  s_d3b744d29667a2::t_adf78b83498baa 5
+agents/planner.md
+  s_d3b744d29667a2::t_0f544bc102edfc 7-8
+agents/reviewer.md
+  s_d3b744d29667a2::t_d98468567601a2 8-9
+agents/tester.md
+  s_d3b744d29667a2::t_95ee3756288b31 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ecb8051fe32fc2f44aa9cb7e95a6221d2e2d765c",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
