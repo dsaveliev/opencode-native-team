@@ -230,13 +230,13 @@ def sparkline(pts, msgs, now_min):
             f'<text x="{x(m):.0f}" y="{height - 8}" text-anchor="middle" class=axt>{m}m</text>'
         )
     path = f"M {x(pts[0]):.0f} {y(1):.0f}" + "".join(
-        f" L {x(p):.0f} {y(i + 2):.0f}" for i, p in enumerate(pts)
+        f" L {x(p):.0f} {y(i + 1):.0f}" for i, p in enumerate(pts[1:], 1)
     )
     s.append(f'<path d="{path}" fill="none" class=line/>')
     for i, p in enumerate(pts):
         tip = html.escape(f"#{i + 1} @ {p:.0f}m: {msgs[i] if i < len(msgs) else ''}")
         s.append(
-            f'<circle cx="{x(p):.0f}" cy="{y(i + 2):.0f}" r="4" class=pt><title>{tip}</title></circle>'
+            f'<circle cx="{x(p):.0f}" cy="{y(i + 1):.0f}" r="4" class=pt><title>{tip}</title></circle>'
         )
     if now_min is not None and 0 <= now_min <= xmax:
         nx = x(now_min)
@@ -429,7 +429,7 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  .step.cur{{background:var(--acc);border-color:var(--acc);color:#fff}}
  .step.done{{color:var(--acc);border-color:var(--acc)}}
  .sep{{width:14px;height:1px;background:var(--border)}}
- .cols{{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}}
+ .cols{{display:grid;grid-template-columns:1fr;gap:14px}}
  .panel{{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:14px;overflow:auto}}
  h2{{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:2px 0 8px}}
  table{{border-collapse:collapse;width:100%}} td,th{{padding:4px 8px;border-bottom:1px solid var(--grid);text-align:left;font-size:12.5px}}
