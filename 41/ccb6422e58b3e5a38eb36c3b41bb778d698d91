@@ -1,0 +1,37 @@
+agents/planner.md
+  s_d3b744d29667a2::t_9ea6eb271115ec 1-17
+agents/coder.md
+  s_d3b744d29667a2::t_b5da2cb6618ed4 1-11
+agents/orchestrator.md
+  s_d3b744d29667a2::t_72f347a367a57c 1-73
+agents/tester.md
+  s_d3b744d29667a2::t_6530e7f82542e2 1-12
+README.md
+  s_d3b744d29667a2::t_c3fb097555ca5b 1-66
+install.sh
+  s_d3b744d29667a2::t_4df43eb24217c6 1-20
+agents/reviewer.md
+  s_d3b744d29667a2::t_563d695ba4b5eb 1-24
+LICENSE
+  s_d3b744d29667a2::t_54ac2f0eb306e8 1-21
+examples/TASK.md
+  s_d3b744d29667a2::t_c40a0438dc087a 1-46
+examples/judge.sh
+  s_d3b744d29667a2::t_5d96686a186ff2 1-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "41ccb6422e58b3e5a38eb36c3b41bb778d698d91",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
