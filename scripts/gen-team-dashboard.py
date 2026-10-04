@@ -21,6 +21,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import time
 
 DIR = os.path.abspath(sys.argv[1])
 DB = os.path.expanduser("~/.local/share/opencode/opencode.db")
@@ -211,8 +212,8 @@ def sparkline(pts, msgs, now_min):
         return height - 24 - v / ymax * (height - 38)
 
     s = [
-        f'<svg viewBox="0 0 {width} {height}" preserveAspectRatio="xMidYMid meet" '
-        f'style="width:100%;height:auto">'
+        f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+        f'preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">'
     ]
     for g in range(0, len(pts) + 1, max(1, len(pts) // 5)):
         s.append(
@@ -248,6 +249,55 @@ def sparkline(pts, msgs, now_min):
         )
     s.append("</svg>")
     return "".join(s)
+
+
+CODE_EXT = re.compile(r"\.(go|py|ts|tsx|js|jsx|rs|java|rb|php|c|cc|cpp|h|hpp|sh)$")
+
+
+def project_loc():
+    """Lines of code over tracked files (code extensions only)."""
+    files = [f for f in sh("git ls-files").split("\n")
+             if f and CODE_EXT.search(f) and not f.startswith("vendor/")]
+    if not files:
+        return 0
+    out = sh("wc -l " + " ".join(f"'{f}'" for f in files[:500]))
+    total = 0
+    for line in out.split("\n"):
+        m = re.match(r"\s*(\d+)", line)
+        if m:
+            total += int(m.group(1))
+    return total
+
+
+COV_CACHE = os.path.join(DIR, "tmp", "team-dashboard-coverage.json")
+
+
+def test_coverage():
+    """Mean per-package go test coverage, cached with a TTL (tests are too
+    heavy for every tick). 'n/a' when Go is absent or the TTL is 0."""
+    ttl = int(cfg_get("coverage_ttl", 60) or 0)
+    if ttl <= 0:
+        return None
+    try:
+        c = json.load(open(COV_CACHE, encoding="utf-8"))
+        if time.time() * 1000 - c["ts"] < ttl * 1000:
+            return c["pct"]
+    except Exception:
+        pass
+    if not os.path.exists(os.path.join(DIR, "go.mod")):
+        return None
+    try:
+        import subprocess as sp
+        r = sp.run(["go", "test", "-count=1", "-cover", "./..."],
+                   cwd=DIR, capture_output=True, text=True, timeout=45)
+        pcts = [float(m) for m in re.findall(r"coverage:\s+(\d+(?:\.\d+)?)%", r.stdout)]
+        pct = round(sum(pcts) / len(pcts), 1) if pcts else None
+        if pct is not None:
+            json.dump({"pct": pct, "ts": int(time.time() * 1000)},
+                      open(COV_CACHE, "w", encoding="utf-8"))
+        return pct
+    except Exception:
+        return None
 
 
 AGENT_COLORS = {
@@ -308,6 +358,8 @@ for s in SESSIONS:
     a["tout"] += s["tout"]
     a["last"] = max(a["last"], s["updated"])
 
+PROJ_LOC = project_loc()
+COVERAGE = test_coverage()
 SPAWNS = sum(d["spawns"] for a, d in agents.items() if a != "orchestrator")
 tin = sum(s["tin"] for s in SESSIONS)
 tout = sum(s["tout"] for s in SESSIONS)
@@ -365,6 +417,8 @@ cards = f"""
 <div class=card><div class=v>{fmt_k(tin)}</div><div class=l>tokens in</div></div>
 <div class=card><div class=v>{fmt_k(tout)}</div><div class=l>tokens out</div></div>
 <div class=card><div class=v>{SPAWNS}</div><div class=l>subagent spawns</div></div>
+<div class=card><div class=v>{fmt_k(PROJ_LOC)}</div><div class=l>loc (tracked)</div></div>
+<div class=card><div class=v>{COVERAGE if COVERAGE is not None else '&mdash;'}</div><div class=l>test coverage %</div></div>
 <div class=card><div class=v>{NERR}</div><div class=l>tool errors</div></div>
 <div class=card><div class=v>{fmt_ms(ELAPSED)}</div><div class=l>elapsed &middot; {html.escape(eta)}</div></div>
 """

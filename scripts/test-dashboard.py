@@ -64,9 +64,19 @@ try:
         "# Tasks\n\n" + "".join(f"- [x] {i}. old archived task\n" for i in range(40))
     )
 
-    # config: refresh 15, no browser
+    # config: refresh 15, no browser, coverage off (no Go in CI)
     open(os.path.join(fx, ".opencode", "team-dashboard.json"), "w").write(
-        '{"mode": "always", "refresh": 15, "open_browser": false}'
+        '{"mode": "always", "refresh": 15, "open_browser": false, "coverage_ttl": 0}'
+    )
+
+    # code file so the LOC card has something to count
+    os.makedirs(os.path.join(fx, "cmd"), exist_ok=True)
+    open(os.path.join(fx, "cmd", "main.go"), "w").write(
+        "package main\n\nfunc main() { println(1) }\n"
+    )
+    subprocess.run(["git", "add", "-A"], cwd=fx, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "loc fixture"], cwd=fx, capture_output=True, check=True
     )
 
     # run window state: started now (this is "this run")
@@ -96,6 +106,14 @@ try:
     # stepper present
     check(
         "stage stepper", re.search(r'class="step cur">plan|class="step cur">code', page)
+    )
+    # LOC counts tracked code (4 lines of Go), coverage renders a placeholder
+    check("LOC card counts code", ">3<" in page and "loc (tracked)" in page)
+    check("coverage placeholder", "&mdash;</div><div class=l>test coverage %" in page)
+    # svg has explicit width/height (Safari renders height:auto-only svg at 0)
+    check(
+        "timeline svg has width/height attrs",
+        re.search(r'<svg width="860" height="120"', page) is not None,
     )
     # atomic write: no leftover tmp
     check(
