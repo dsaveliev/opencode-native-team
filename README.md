@@ -68,6 +68,35 @@ process requirements), then use either of the two methods above.
 The team then runs autonomously: openspec change → planner → coder → tester →
 reviewer → commit, with a `DECISIONS.md` entry for every ambiguity it resolved.
 
+## Existing openspec project (per-feature workflow)
+
+If your repository already uses OpenSpec, run the team per feature on an
+already-written change:
+
+```
+/team-change add-user-ratelimit
+```
+
+The orchestrator validates the change, works on branch `feat/<change-id>`
+(never main), and implements the existing proposal/design/tasks as-is —
+corrections are limited to `[x]`-proofs and observability comments.
+Merge/PR stays yours.
+
+Adapt the installed config to the project:
+
+- **Reviewer/test commands.** Extend the reviewer's bash map with the
+  project's verification commands (`golangci-lint run`, `make test`,
+  `docker compose ...`). Keep the map a **superset** of the contract's
+  frontmatter rules — trimming silently strips protections (see the
+  complete-map rule above).
+- **Test targets.** The tester has a 5-minute budget per task; on a medium
+  backend `go test ./...` may not fit. Put package-scoped commands into
+  tasks (`go test -race ./internal/billing/...`) — faster and sharper for
+  coder briefs.
+- **Budget.** From measured runs: ~40–60 min and 1–2M input tokens per
+  feature. First run — pick a low-risk feature and audit `DECISIONS.md`
+  afterwards: it lists every point where the spec was ambiguous.
+
 ## Team
 
 | Role | Mode | Can write? | Temp | Model | Description |

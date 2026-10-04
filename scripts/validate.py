@@ -258,17 +258,18 @@ def main():
         err("opencode.json.example: planner model routing missing")
     s.ok("example config: headless allows, reviewer superset map, model routing")
 
-    s = Step("[6] commands/team.md")
-    team = open("commands/team.md", encoding="utf-8").read()
-    tdata = parse_frontmatter(team, "commands/team.md")
-    if tdata is not None:
-        if not tdata.get("description"):
-            err("commands/team.md: description missing")
-        if tdata.get("agent") != "orchestrator":
-            err("commands/team.md: agent must be 'orchestrator'")
-        if "$ARGUMENTS" not in team:
-            err("commands/team.md: $ARGUMENTS placeholder missing")
-    s.ok("command /team valid")
+    s = Step("[6] commands/")
+    for cf in ("commands/team.md", "commands/team-change.md"):
+        ctext = open(cf, encoding="utf-8").read()
+        cdata = parse_frontmatter(ctext, cf)
+        if cdata is not None:
+            if not cdata.get("description"):
+                err(f"{cf}: description missing")
+            if cdata.get("agent") != "orchestrator":
+                err(f"{cf}: agent must be 'orchestrator'")
+            if "$ARGUMENTS" not in ctext and "$1" not in ctext:
+                err(f"{cf}: $ARGUMENTS/$1 placeholder missing")
+    s.ok("commands /team and /team-change valid")
 
     s = Step("[7] shell scripts: syntax")
     for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh"):

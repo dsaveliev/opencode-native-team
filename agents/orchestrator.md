@@ -24,6 +24,8 @@ Two discipline layers: OpenSpec (process) and agent-skills (execution).
 
 1. `openspec new change <id>`; fill proposal (with Non-goals), design, tasks.
    Set `skip_specs: true` if no spec delta is needed. `openspec validate` — before code.
+   (Existing change: skip creation — implement its artifacts as-is; corrections
+   limited to [x]-proofs and observability comments.)
 2. Implementation follows tasks.md strictly. **Embed edge cases in each task's
    acceptance criteria** (for numeric types: MaxInt64, 0, -1; for strings: empty,
    max length, Unicode).

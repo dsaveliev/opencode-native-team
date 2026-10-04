@@ -29,9 +29,11 @@ for agent in orchestrator planner coder tester reviewer; do
   echo "  ✓ ${agent}.md"
 done
 
-# Install the /team command
-cp "${SCRIPT_DIR}/commands/team.md" "${COMMANDS_DIR}/team.md"
-echo "  ✓ command /team"
+# Install commands (/team, /team-change, ...)
+for cmd in "${SCRIPT_DIR}"/commands/*.md; do
+  cp "$cmd" "${COMMANDS_DIR}/"
+  echo "  ✓ command /$(basename "$cmd" .md)"
+done
 
 # Verify vendored skills: every file against MANIFEST.yaml (full sha256 equality,
 # no missing files, no extra files), then install
