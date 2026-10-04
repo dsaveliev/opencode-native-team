@@ -1,0 +1,19 @@
+commands/team-change.md
+  s_d3b744d29667a2::t_4554dc2fb66d07 8-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dd606bdcf96f949dc1dbc70daaae2c4465b28e50",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
