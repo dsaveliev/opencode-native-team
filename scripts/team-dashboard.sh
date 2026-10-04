@@ -54,7 +54,9 @@ case "$CMD" in
       echo "dashboard already running (pid $(cat "$PIDFILE"))"
       exit 0
     fi
-    python3 -c "import json, time; json.dump({'start_ms': int(time.time()*1000)}, open('$STATE', 'w'))"
+    if [ ! -f "$STATE" ]; then
+      python3 -c "import json, time; json.dump({'start_ms': int(time.time()*1000)}, open('$STATE', 'w'))"
+    fi
     nohup bash -c "while :; do python3 '$GEN' '$DIR' >/dev/null 2>&1 || true; sleep $REFRESH; done" \
       >/dev/null 2>&1 &
     echo $! > "$PIDFILE"

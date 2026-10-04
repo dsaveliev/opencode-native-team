@@ -46,24 +46,21 @@ def fmt_k(n):
     return f"{round(n / 1000)}k" if n >= 1000 else str(n)
 
 
-def run_start(sessions):
-    try:
-        return json.load(open(STATE))["start_ms"]
-    except Exception:
-        if sessions:
-            return min(s["created"] for s in sessions)
-        return NOW
-
-
-def load_sessions():
+def load_sessions(start_ms=None):
+    """Sessions for this directory; with a run start, only this run's
+    sessions (previous runs in the same dir stay in the DB)."""
     try:
         con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
-        rows = con.execute(
+        q = (
             "SELECT id, agent, model, time_created, time_updated, "
             "tokens_input, tokens_output, tokens_reasoning "
-            "FROM session WHERE directory = ?",
-            (DIR,),
-        ).fetchall()
+            "FROM session WHERE directory = ?"
+        )
+        args = [DIR]
+        if start_ms:
+            q += " AND time_created >= ?"
+            args.append(start_ms - 60_000)  # tolerance for early spawns
+        rows = con.execute(q, args).fetchall()
         con.close()
     except Exception:
         return []
@@ -215,11 +212,23 @@ def agent_color(a):
     return AGENT_COLORS.get(a, "#66707c")
 
 
-SESSIONS = load_sessions()
-START = run_start(SESSIONS)
+# run start first (state file or earliest session), then filter sessions to it
+HAVE_STATE = os.path.exists(STATE)
+if HAVE_STATE:
+    try:
+        START = json.load(open(STATE))["start_ms"]
+    except Exception:
+        START = None
+else:
+    START = None
+if START is None:
+    _all = load_sessions()
+    START = min((s["created"] for s in _all), default=NOW)
+    SESSIONS = _all
+else:
+    SESSIONS = load_sessions(START)
 TEXTS, NERR = load_parts([s["id"] for s in SESSIONS])
 DONE, TOTAL, TASK_LINES = load_tasks()
-HAVE_STATE = os.path.exists(STATE)
 COMMITS_T, COMMITS_M = load_commits(START, HAVE_STATE)
 ELAPSED = max(NOW - START, 0)
 DIRTY = (
