@@ -1,0 +1,53 @@
+examples/judge.sh
+  s_d3b744d29667a2::t_cfa29fdc2bf046 52
+  s_d3b744d29667a2::t_17d33dce2ec06c 4-9,13,29,43-44,47,53,64-65,69,72-85,88,97-98,100,121
+docs/review-v5.1.1.md
+  s_7fc35b7cff42cd::t_8c4655cbaa19af 1-349
+scripts/validate.py
+  s_d3b744d29667a2::t_378e0cf4ecbaff 1-182
+install.sh
+  s_d3b744d29667a2::t_ba54d8cacef8ec 19-20,27-28,30-36,38-42,45-48,51-55,58-62,67,72
+docs/reviews.md
+  s_d3b744d29667a2::t_823a80a636203a 1-46
+.github/workflows/ci.yml
+  s_d3b744d29667a2::t_c2445d5ec72838 1-16
+README.md
+  s_d3b744d29667a2::t_21e21281911e93 21-23
+  s_d3b744d29667a2::t_6003ed2683695c 42
+  s_d3b744d29667a2::t_de5810600ac582 106-109
+  s_d3b744d29667a2::t_bf8ee5b2a311c5 70,72-75,78-80
+agents/coder.md
+  s_d3b744d29667a2::t_8768f8a27a374d 7
+agents/planner.md
+  s_d3b744d29667a2::t_dd1b1fb9a53136 5,22
+agents/reviewer.md
+  s_d3b744d29667a2::t_83a0aa71c1de2a 6,26
+agents/tester.md
+  s_d3b744d29667a2::t_d15983194ee26c 7
+vendor/MANIFEST.yaml
+  s_d3b744d29667a2::t_41731ee4166988 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0600d42e0345632c452aae1df45025fa25682c87",
+  "prompts": {},
+  "sessions": {
+    "s_7fc35b7cff42cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d682a88d-7ff8-4747-b8fb-cf6d07af0649",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
