@@ -1,0 +1,32 @@
+scripts/validate.py
+  s_d3b744d29667a2::t_1a761a013e6cf2 246-259
+  s_d3b744d29667a2::t_824942d5c8802d 267
+install.sh
+  s_d3b744d29667a2::t_d1669d53ca03e2 3-4,8-14,17-22,24,32-34
+  s_d3b744d29667a2::t_b112e67fbe7804 92-94,100-109
+  s_d3b744d29667a2::t_04da67a9fbd095 35
+commands/team.md
+  s_d3b744d29667a2::t_56c0eeaf4ef6a8 1-14
+SPEC.md
+  s_d3b744d29667a2::t_cf7f4ade504927 56-59
+README.md
+  s_d3b744d29667a2::t_d6f4893ee15689 3
+  s_d3b744d29667a2::t_caa9b89b165574 32,35-36,45-69
+  s_d3b744d29667a2::t_d8ec145a4e08e0 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "761aaa6fe30253d84e97c0b404134eb9a52533f7",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
