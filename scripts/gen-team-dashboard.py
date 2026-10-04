@@ -318,8 +318,8 @@ NERR = sum(ERR_TOOLS.values())
 # stage stepper: last orchestrator text → keywords; fallback: last active agent
 STAGES = ["plan", "code", "test", "review", "done"]
 stage = None
-orch_texts = [t for t, a, _ in TEXTS if a == "orchestrator"]
-last_txt = orch_texts[0][2].lower() if orch_texts else ""
+orch_texts = [x for _t, a, x in TEXTS if a == "orchestrator"]
+last_txt = orch_texts[0].lower() if orch_texts else ""
 for kw, st in [
     ("archive|final gates|closing", "done"),
     ("reviewer|review", "review"),
