@@ -97,6 +97,23 @@ def ru_allowed(path):
 
 
 def git_shas():
+    """Short SHAs of full history; on a shallow clone the caller reports
+    a clear fix instead of per-file false failures."""
+    shallow = (
+        subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        == "true"
+    )
+    if shallow:
+        err(
+            "shallow clone: review subject commits cannot resolve — "
+            "run 'git fetch --unshallow' (CI: actions/checkout fetch-depth: 0)"
+        )
+        return None
     out = subprocess.run(
         ["git", "log", "--format=%h"], cwd=ROOT, capture_output=True, text=True
     ).stdout.split()
@@ -212,14 +229,20 @@ def main():
     # contracts (frontmatter denies take precedence over top-level allows)
     top = cfg.get("permission", {})
     if top.get("bash", {}).get("*") != "allow":
-        err("opencode.json.example: top-level bash allow missing — headless "
-            "runs auto-reject every command (probed)")
+        err(
+            "opencode.json.example: top-level bash allow missing — headless "
+            "runs auto-reject every command (probed)"
+        )
     if top.get("edit", {}).get("*") != "allow":
-        err("opencode.json.example: top-level edit allow missing — headless "
-            "runs cannot write files")
+        err(
+            "opencode.json.example: top-level edit allow missing — headless "
+            "runs cannot write files"
+        )
     rev = cfg.get("agent", {}).get("reviewer", {}).get("permission", {}).get("bash", {})
     if not any("test" in k for k in rev):
-        err("opencode.json.example: reviewer has no test command allow (R-4 regression)")
+        err(
+            "opencode.json.example: reviewer has no test command allow (R-4 regression)"
+        )
     # C-1: the JSON override must be a SUPERSET of the reviewer frontmatter
     # bash map — a trimmed map silently strips git-read allows and separator
     # denies (presence of "*" alone does not express "complete")
@@ -227,8 +250,10 @@ def main():
     if isinstance(fm_rev_bash, dict):
         for pat, action in fm_rev_bash.items():
             if rev.get(pat) != action:
-                err("opencode.json.example: reviewer bash map must be a "
-                    f"superset of the contract — missing {pat!r}: {action!r}")
+                err(
+                    "opencode.json.example: reviewer bash map must be a "
+                    f"superset of the contract — missing {pat!r}: {action!r}"
+                )
     if "model" not in cfg.get("agent", {}).get("planner", {}):
         err("opencode.json.example: planner model routing missing")
     s.ok("example config: headless allows, reviewer superset map, model routing")
@@ -278,6 +303,11 @@ def main():
     if not os.path.exists("docs/artifacts/native-v5-models-routing.txt"):
         err("docs/reviews.md: promised artifact docs/artifacts/... missing")
     shas = git_shas()
+    if shas is None:
+        s.ok("skipped: see shallow-clone error above")
+        print()
+        print(f"VALIDATION FAILED: {len(errors)} error(s)")
+        return 1
     # subject commit = the first SHA on the "Kommit(y) ..." header line
     # (\u041a\u043a = Cyrillic K/k — kept escaped to keep this file ASCII);
     # SHAs merely quoted inside the body may repeat across reviews
