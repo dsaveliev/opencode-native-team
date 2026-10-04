@@ -1,20 +1,37 @@
 #!/usr/bin/env bash
 # install.sh — install opencode-native-team into a target project
-# Usage: ./install.sh /path/to/project
+# Usage: ./install.sh /path/to/project          (project-scoped)
+#        ./install.sh --global                  (all projects; config stays per-project)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET="${1:?Usage: $0 /path/to/project}"
+GLOBAL=0
+if [ "${1:-}" = "--global" ]; then
+  GLOBAL=1
+  TARGET="${HOME}/.config/opencode"
+else
+  TARGET="${1:?Usage: $0 /path/to/project | --global}"
+fi
 AGENTS_DIR="${TARGET}/.opencode/agents"
 SKILLS_DIR="${TARGET}/.opencode/skills"
+COMMANDS_DIR="${TARGET}/.opencode/commands"
+if [ $GLOBAL = 1 ]; then
+  AGENTS_DIR="${TARGET}/agents"
+  SKILLS_DIR="${TARGET}/skills"
+  COMMANDS_DIR="${TARGET}/commands"
+fi
 
-mkdir -p "${AGENTS_DIR}" "${SKILLS_DIR}"
+mkdir -p "${AGENTS_DIR}" "${SKILLS_DIR}" "${COMMANDS_DIR}"
 
 # Install agent contracts
 for agent in orchestrator planner coder tester reviewer; do
   cp "${SCRIPT_DIR}/agents/${agent}.md" "${AGENTS_DIR}/${agent}.md"
   echo "  ✓ ${agent}.md"
 done
+
+# Install the /team command
+cp "${SCRIPT_DIR}/commands/team.md" "${COMMANDS_DIR}/team.md"
+echo "  ✓ command /team"
 
 # Verify vendored skills: every file against MANIFEST.yaml (full sha256 equality,
 # no missing files, no extra files), then install
@@ -72,13 +89,21 @@ PYEOF
   echo "  ✓ vendored skills installed"
 fi
 
-# Install example opencode.json if none exists
-if [ ! -f "${TARGET}/.opencode/opencode.json" ] && [ -f "${SCRIPT_DIR}/examples/opencode.json.example" ]; then
+# Install example opencode.json if none exists (project mode only:
+# model routing and test commands are project-specific)
+if [ $GLOBAL = 0 ] && [ ! -f "${TARGET}/.opencode/opencode.json" ] && [ -f "${SCRIPT_DIR}/examples/opencode.json.example" ]; then
   cp "${SCRIPT_DIR}/examples/opencode.json.example" "${TARGET}/.opencode/opencode.json"
   echo "  ✓ opencode.json (example — customize models and test commands for your language)"
 fi
 
 echo ""
-echo "Team installed. Run:"
-echo "  cd ${TARGET}"
-echo "  opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'"
+if [ $GLOBAL = 1 ]; then
+  echo "Team installed globally. In any project run opencode and use:"
+  echo "  /team <assignment>"
+  echo "Note: add agent model routing per project in its .opencode/opencode.json."
+else
+  echo "Team installed. Run:"
+  echo "  cd ${TARGET}"
+  echo "  opencode   →  /team <assignment>"
+  echo "  or: opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'"
+fi

@@ -243,7 +243,20 @@ def main():
     if not any("MANIFEST" in e or "json.example" in e for e in errors):
         ok("example config: no global allow, reviewer tests, model routing present")
 
-    print("[7] shell scripts: syntax")
+    print("[7] commands/team.md")
+    team = open("commands/team.md", encoding="utf-8").read()
+    tdata = parse_frontmatter(team, "commands/team.md", yaml_mod)
+    if tdata is not None:
+        if not tdata.get("description"):
+            err("commands/team.md: description missing")
+        if tdata.get("agent") != "orchestrator":
+            err("commands/team.md: agent must be 'orchestrator'")
+        if "$ARGUMENTS" not in team:
+            err("commands/team.md: $ARGUMENTS placeholder missing")
+        if not errors or not any("team.md" in e for e in errors):
+            ok("command /team: description, agent=orchestrator, $ARGUMENTS")
+
+    print("[8] shell scripts: syntax")
     for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh"):
         r = subprocess.run(["bash", "-n", sh], capture_output=True, text=True)
         if r.returncode != 0:
@@ -251,7 +264,7 @@ def main():
         else:
             ok(f"{sh}")
 
-    print("[8] Cyrillic / CJK outside allowed Russian files")
+    print("[9] Cyrillic / CJK outside allowed Russian files")
     for root, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
         for fn in files:

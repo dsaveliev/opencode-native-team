@@ -53,7 +53,10 @@ opencode-native-team/
     tester.md                  — tests (main testability + race detection)
     reviewer.md                — review verdicts (5 axes, read-only, t=0.1)
 
-  install.sh                   — install into target project
+  commands/
+    team.md                    — /team <assignment>: run the cycle on a task
+
+  install.sh                   — install into target project (or --global)
 
   vendor/                      — vendored dependencies (see MANIFEST.yaml)
     MANIFEST.yaml              — dependency pins (skills, models, CLI versions)

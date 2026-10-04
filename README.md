@@ -1,5 +1,6 @@
 # opencode-native-team
 
+[![CI](https://github.com/dsaveliev/opencode-native-team/actions/workflows/ci.yml/badge.svg)](https://github.com/dsaveliev/opencode-native-team/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![opencode](https://img.shields.io/badge/opencode-1.18%2B-orange)](https://opencode.ai)
 
@@ -28,12 +29,11 @@ Full run data available on request.
 git clone https://github.com/dsaveliev/opencode-native-team.git
 cd opencode-native-team
 
-# Install into your project
+# Install into your project (agents + /team command + skills + example config)
 ./install.sh /path/to/your/project
 
-# Run the team
-cd /path/to/your/project
-opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'
+# Or install globally — the team becomes available in every project
+./install.sh --global
 ```
 
 ### Prerequisites
@@ -41,6 +41,32 @@ opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'
 - [opencode](https://opencode.ai) ≥ 1.18
 - [OpenSpec CLI](https://github.com/Fission-AI/OpenSpec) ≥ 1.14 (`npm install -g @fission-ai/openspec`)
 - An `opencode.json` with model routing (see `examples/opencode.json.example`)
+
+## Usage
+
+Three ways to run the team (pick one):
+
+**1. `/team` command (recommended)** — open `opencode` in your project and type:
+
+```
+/team add a rate-limited events endpoint to the API
+```
+
+The command runs the orchestrator with your text as the assignment. If
+`TASK.md` exists in the repo root, it takes precedence.
+
+**2. CLI one-liner** — for scripts and experiments:
+
+```bash
+opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'
+```
+
+**3. TASK.md flow** — write the assignment into `TASK.md` (see
+`examples/TASK.md` for a complete example with a contract, deliverables and
+process requirements), then use either of the two methods above.
+
+The team then runs autonomously: openspec change → planner → coder → tester →
+reviewer → commit, with a `DECISIONS.md` entry for every ambiguity it resolved.
 
 ## Team
 
