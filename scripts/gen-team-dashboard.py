@@ -143,19 +143,17 @@ def load_tasks(start_ms=None):
     a run state (archive view) everything counts."""
 
     def entries(path):
+        """Items: ("h", title) sections and ("t", done, depth, title) tasks;
+        depth derived from bullet indentation."""
         out = []
         section = ""
         for raw in open(path, encoding="utf-8", errors="ignore"):
             if re.match(r"^## ", raw):
-                section = raw.lstrip("# ").strip()
-            m = re.match(r"\s*- \[([ x])]\s*(\d*\.?\s*.+)", raw)
+                out.append(("h", raw.lstrip("# ").strip()[:60]))
+            m = re.match(r"(\s*)- \[([ x])]\s*(\d*\.?\s*.+)", raw)
             if m:
-                out.append(
-                    (
-                        m.group(1) == "x",
-                        (section + " · " if section else "") + m.group(2).strip()[:90],
-                    )
-                )
+                depth = min(len(m.group(1)) // 2, 4)
+                out.append(("t", m.group(2) == "x", depth, m.group(3).strip()[:90]))
         return out
 
     start_date = None
@@ -177,8 +175,9 @@ def load_tasks(start_ms=None):
             continue  # archived before this run — another run's history
         changes.append(("archive: " + name, entries(path)))
 
-    done = sum(1 for _, es in changes for d, _ in es if d)
-    total = sum(len(es) for _, es in changes)
+    done = sum(1 for _, es in changes
+               for it in es if it[0] == "t" and it[1])
+    total = sum(1 for _, es in changes for it in es if it[0] == "t")
     return done, total, changes
 
 
@@ -217,35 +216,35 @@ def sparkline(pts, msgs, now_min):
     ]
     for g in range(0, len(pts) + 1, max(1, len(pts) // 5)):
         s.append(
-            f'<line x1="38" y1="{y(g):.0f}" x2="{width - 12}" y2="{y(g):.0f}" class=grid/>'
+            f'<line x1="38" y1="{y(g):.0f}" x2="{width - 12}" y2="{y(g):.0f}" class="grid"/>'
         )
         s.append(
-            f'<text x="32" y="{y(g) + 4:.0f}" text-anchor="end" class=axt>{g}</text>'
+            f'<text x="32" y="{y(g) + 4:.0f}" text-anchor="end" class="axt">{g}</text>'
         )
     step = max(5, round(xmax / 10))
     for m in range(0, int(xmax) + 1, step):
         s.append(
-            f'<line x1="{x(m):.0f}" y1="14" x2="{x(m):.0f}" y2="{height - 24}" class=grid/>'
+            f'<line x1="{x(m):.0f}" y1="14" x2="{x(m):.0f}" y2="{height - 24}" class="grid"/>'
         )
         s.append(
-            f'<text x="{x(m):.0f}" y="{height - 8}" text-anchor="middle" class=axt>{m}m</text>'
+            f'<text x="{x(m):.0f}" y="{height - 8}" text-anchor="middle" class="axt">{m}m</text>'
         )
     path = f"M {x(pts[0]):.0f} {y(1):.0f}" + "".join(
         f" L {x(p):.0f} {y(i + 1):.0f}" for i, p in enumerate(pts[1:], 1)
     )
-    s.append(f'<path d="{path}" fill="none" class=line/>')
+    s.append(f'<path d="{path}" fill="none" class="line"/>')
     for i, p in enumerate(pts):
         tip = html.escape(f"#{i + 1} @ {p:.0f}m: {msgs[i] if i < len(msgs) else ''}")
         s.append(
-            f'<circle cx="{x(p):.0f}" cy="{y(i + 1):.0f}" r="4" class=pt><title>{tip}</title></circle>'
+            f'<circle cx="{x(p):.0f}" cy="{y(i + 1):.0f}" r="4" class="pt"><title>{tip}</title></circle>'
         )
     if now_min is not None and 0 <= now_min <= xmax:
         nx = x(now_min)
         s.append(
-            f'<line x1="{nx:.0f}" y1="10" x2="{nx:.0f}" y2="{height - 24}" class=now/>'
+            f'<line x1="{nx:.0f}" y1="10" x2="{nx:.0f}" y2="{height - 24}" class="now"/>'
         )
         s.append(
-            f'<text x="{nx:.0f}" y="10" text-anchor="middle" class=nowt>now</text>'
+            f'<text x="{nx:.0f}" y="10" text-anchor="middle" class="nowt">now</text>'
         )
     s.append("</svg>")
     return "".join(s)
@@ -256,8 +255,11 @@ CODE_EXT = re.compile(r"\.(go|py|ts|tsx|js|jsx|rs|java|rb|php|c|cc|cpp|h|hpp|sh)
 
 def project_loc():
     """Lines of code over tracked files (code extensions only)."""
-    files = [f for f in sh("git ls-files").split("\n")
-             if f and CODE_EXT.search(f) and not f.startswith("vendor/")]
+    files = [
+        f
+        for f in sh("git ls-files").split("\n")
+        if f and CODE_EXT.search(f) and not f.startswith("vendor/")
+    ]
     if not files:
         return 0
     out = sh("wc -l " + " ".join(f"'{f}'" for f in files[:500]))
@@ -288,13 +290,21 @@ def test_coverage():
         return None
     try:
         import subprocess as sp
-        r = sp.run(["go", "test", "-count=1", "-cover", "./..."],
-                   cwd=DIR, capture_output=True, text=True, timeout=45)
+
+        r = sp.run(
+            ["go", "test", "-count=1", "-cover", "./..."],
+            cwd=DIR,
+            capture_output=True,
+            text=True,
+            timeout=45,
+        )
         pcts = [float(m) for m in re.findall(r"coverage:\s+(\d+(?:\.\d+)?)%", r.stdout)]
         pct = round(sum(pcts) / len(pcts), 1) if pcts else None
         if pct is not None:
-            json.dump({"pct": pct, "ts": int(time.time() * 1000)},
-                      open(COV_CACHE, "w", encoding="utf-8"))
+            json.dump(
+                {"pct": pct, "ts": int(time.time() * 1000)},
+                open(COV_CACHE, "w", encoding="utf-8"),
+            )
         return pct
     except Exception:
         return None
@@ -418,7 +428,7 @@ cards = f"""
 <div class=card><div class=v>{fmt_k(tout)}</div><div class=l>tokens out</div></div>
 <div class=card><div class=v>{SPAWNS}</div><div class=l>subagent spawns</div></div>
 <div class=card><div class=v>{fmt_k(PROJ_LOC)}</div><div class=l>loc (tracked)</div></div>
-<div class=card><div class=v>{COVERAGE if COVERAGE is not None else '&mdash;'}</div><div class=l>test coverage %</div></div>
+<div class=card><div class=v>{COVERAGE if COVERAGE is not None else "&mdash;"}</div><div class=l>test coverage %</div></div>
 <div class=card><div class=v>{NERR}</div><div class=l>tool errors</div></div>
 <div class=card><div class=v>{fmt_ms(ELAPSED)}</div><div class=l>elapsed &middot; {html.escape(eta)}</div></div>
 """
@@ -436,12 +446,20 @@ agent_rows = "".join(
 pct = round(100 * DONE / TOTAL) if TOTAL else 0
 task_html = ""
 for name, es in TASK_CHANGES:
-    d_n = sum(1 for d, _ in es if d)
-    task_html += f"<div class=tch>{html.escape(name)} — {d_n}/{len(es)}</div>"
-    for d, title in es:
+    d_n = sum(1 for it in es if it[0] == "t" and it[1])
+    t_n = sum(1 for it in es if it[0] == "t")
+    task_html += f"<div class=tch>{html.escape(name)} — {d_n}/{t_n}</div>"
+    for it in es:
+        if it[0] == "h":
+            task_html += f'<div class=tw>{html.escape(it[1])}</div>'
+            continue
+        _, d, depth, title = it
         cls = "tdone" if d else "ttodo"
         mark = "&#10003;" if d else "&#9744;"
-        task_html += f'<div class="{cls}">{mark} {html.escape(title)}</div>'
+        task_html += (
+            f'<div class="{cls}" style="padding-left:{6 + depth * 18}px">'
+            f"{mark} {html.escape(title)}</div>"
+        )
     task_html += "<div style='height:6px'></div>"
 
 log_html = "".join(
@@ -471,8 +489,8 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  button{{font-family:inherit;font-size:12px;padding:4px 14px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--fg);cursor:pointer}}
  button:hover{{border-color:var(--acc);color:var(--acc)}} button:active{{transform:translateY(1px)}}
  .meta{{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);margin:5px 0 14px}}
- .cards{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}}
- .card{{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 14px;min-width:110px}}
+ .cards{{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px}}
+ .card{{flex:0 0 auto;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 12px;white-space:nowrap}}
  .card .v{{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}}
  .card .l{{font-size:11px;color:var(--muted);margin-top:2px}}
  .bar{{height:10px;background:var(--grid);border-radius:5px;overflow:hidden;margin:4px 0 12px;display:flex;align-items:center;gap:10px}}
@@ -491,9 +509,10 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  .live{{color:var(--acc);font-weight:600}}
  .feed{{max-height:300px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:11.5px}}
  .ev{{padding:3px 0;border-bottom:1px solid var(--grid);display:flex;gap:8px;align-items:baseline}}
- .ev .t{{color:var(--muted);white-space:nowrap}} .ev .ag{{font-weight:600;min-width:86px}}
+ .ev .t{{color:var(--muted);white-space:nowrap;min-width:56px;display:inline-block;text-align:right}} .ev .ag{{font-weight:600;min-width:150px;white-space:nowrap}}
  .badge{{font-family:ui-monospace,monospace;font-size:9px;font-weight:700;border:1px solid;border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:1px}}
  .tch{{font-family:ui-monospace,monospace;color:var(--muted);font-size:11.5px;margin-top:4px}}
+ .tw{{font-weight:700;font-size:12px;margin:7px 0 2px;text-transform:uppercase;letter-spacing:.04em;color:var(--fg)}}
  .ttodo{{padding:1px 0 1px 6px;font-size:12.5px;font-weight:600}}
  .tdone{{padding:1px 0 1px 6px;font-size:12.5px;color:var(--muted)}}
  .grid{{stroke:var(--grid)}} .axt{{font-size:10px;fill:var(--muted);font-family:ui-monospace,monospace}}
@@ -503,6 +522,7 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class=head><h1>team dashboard — {html.escape(os.path.basename(DIR))}
  <span class="{("live" if active else "muted")}">{state_html}</span></h1>
 <div style="display:flex;gap:8px">
+ <button onclick="location.reload()">refresh</button>
  <button id=pause onclick="togglePause()">pause</button>
 </div></div>
 <div class=meta>project: <code>{html.escape(DIR)}</code> &middot; run start {datetime.datetime.fromtimestamp(START / 1000).strftime("%H:%M:%S")}

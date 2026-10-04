@@ -52,7 +52,8 @@ try:
     open(os.path.join(fx, "openspec", "changes", "alpha", "tasks.md"), "w").write(
         "# Tasks\n\n## Wave 1\n\n- [x] 1. scaffold done thing\n"
         "- [x] 2. proto done thing\n\n## Wave 2\n\n"
-        "- [ ] 3. engine todo thing\n- [ ] 4. server todo thing\n"
+        "- [ ] 3. engine todo thing\n  - [ ] 3.1 nested sub thing\n"
+        "- [ ] 4. server todo thing\n"
     )
     # archived change from an OLD date: 40 done — must NOT leak into the window
     open(
@@ -90,9 +91,9 @@ try:
     check("generator exit 0", r.returncode == 0)
     page = open(os.path.join(fx, "tmp", "team-dashboard.html"), encoding="utf-8").read()
 
-    # D-2: archived (old) change must not leak: 2/4, not 42/44
-    check("tasks card 2/4", ">2/4<" in page)
-    check("old archive excluded (no 42/44)", ">42/44<" not in page)
+    # D-2: archived (old) change must not leak: 2/5, not 42/45
+    check("tasks card 2/5", ">2/5<" in page)
+    check("old archive excluded (no 42/45)", ">42/45<" not in page)
     check("no old archived task titles", "old archived task" not in page)
     # D-4: task titles render (done dimmed, todo present)
     check("todo task rendered", "engine todo thing" in page)
@@ -115,6 +116,16 @@ try:
         "timeline svg has width/height attrs",
         re.search(r'<svg width="860" height="120"', page) is not None,
     )
+    check(
+        "nested task indented",
+        "padding-left:24px" in page and "nested sub thing" in page,
+    )
+    check(
+        "svg classes quoted",
+        'class="line"/>' in page
+        and 'class="grid"/>' in page
+        and "class=line/>" not in page,
+    )
     # atomic write: no leftover tmp
     check(
         "no .tmp leftover",
@@ -127,7 +138,7 @@ try:
     page2 = open(
         os.path.join(fx, "tmp", "team-dashboard.html"), encoding="utf-8"
     ).read()
-    check("archive view counts old change", ">42/44<" in page2)
+    check("archive view counts old change", ">42/45<" in page2)
     check("archive view exit 0", r2.returncode == 0)
 finally:
     shutil.rmtree(fx, ignore_errors=True)
