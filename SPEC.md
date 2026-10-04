@@ -2,74 +2,78 @@
 
 ## Objective
 
-**Продуктизация паттерна native×4 combined v5** — мультиагентной команды разработки
-на чистых примитивах opencode, без единой строчки TypeScript-кода фреймворка.
+**Production release of the native-team v5 pattern** — a multi-agent development
+team built on pure opencode primitives, with zero framework code.
 
-Пользователь — инженер, использующий opencode (или любую совместимую консоль) для
-автоматизации разработки. Успех — команда ставится копированием 5 файлов в
-`.opencode/agents/` проекта и сразу работает: план → код → тесты → ревью → коммиты.
+Target user: an engineer using opencode (or any compatible console) to automate
+software development. Success: the team is installed by copying 5 files into
+`.opencode/agents/` and immediately works: plan → code → test → review → commits.
 
-Пять файлов. Ноль зависимостей. Ноль vendor-lock. Полный контроль.
+Five files. Zero dependencies. Zero vendor lock-in. Full control.
 
 ## Tech Stack
 
-- **runtime**: opencode ≥ 1.18 (agents, Task tool, permissions)
-- **агенты**: markdown + YAML frontmatter (mode, permission, temperature)
-- **процесс**: OpenSpec (CLI ≥ 1.14, `openspec new change` → `validate` → `archive`)
-- **дисциплина**: agent-skills (25 скиллов Addy Osmani, глобальная установка)
-- **модели**: любые через opencode; рекомендованный роутинг:
-  - coder, reviewer, orchestrator → основная модель (glm-5.3)
-  - planner, tester → лёгкая модель (glm-5.3-flash)
-- **код проекта**: не зависит от языка команды (универсальные контракты)
+- **runtime**: opencode >= 1.18 (agents, Task tool, permissions)
+- **agents**: markdown + YAML frontmatter (mode, permission, temperature)
+- **process**: OpenSpec (CLI >= 1.14, `openspec new change` → `validate` → `archive`)
+- **discipline**: agent-skills (install via `npx skills add addyosmani/agent-skills`)
+- **models**: any model supported by opencode; recommended routing:
+  - coder, reviewer, orchestrator → main model (e.g. glm-5.3)
+  - planner, tester → fast model (e.g. glm-5.3-flash)
+- **language**: team contracts are language-agnostic
 
 ## Commands
 
 ```bash
-# Установка в проект
-./install.sh /path/to/project        # копирует agents/ в .opencode/agents/
+# Install into a project
+./install.sh /path/to/project
 
-# Проверка после установки
+# Verify installation
 cd /path/to/project && ls .opencode/agents/
 # → orchestrator.md planner.md coder.md tester.md reviewer.md
 
-# Запуск (в каталоге проекта)
-opencode run --agent orchestrator 'Прочитай TASK.md и выполни задание полностью.'
+# Run (from the project directory)
+opencode run --agent orchestrator 'Read TASK.md and complete the assignment.'
 ```
 
 ## Project Structure
 
 ```
 opencode-native-team/
-  README.md                    — обзор, quick start, философия
-  SPEC.md                      — этот файл (спека проекта)
+  README.md                    — overview, quick start, philosophy
+  SPEC.md                      — this file
   LICENSE                      — MIT
-  
-  agents/                      — ядро: 5 контрактов команды
-    orchestrator.md            — тимлид v5: openspec-цикл + скилл-mapping + evidence-[x]
-    planner.md                 — анализ/декомпозиция (read-only)
-    coder.md                   — реализация (TDD-дисциплина)
-    tester.md                  — тесты (main-тестируемость + гонки)
-    reviewer.md                — ревью-вердикты (5 осей, read-only, t=0,1)
-  
-  install.sh                   — установка в целевой проект
-  
+
+  agents/                      — core: 5 team contracts
+    orchestrator.md            — team lead v5: openspec cycle + skill mapping + evidence-[x]
+    planner.md                 — analysis/decomposition (read-only)
+    coder.md                   — implementation (TDD discipline)
+    tester.md                  — tests (main testability + race detection)
+    reviewer.md                — review verdicts (5 axes, read-only, t=0.1)
+
+  install.sh                   — install into target project
+
+  vendor/                      — vendored dependencies (see MANIFEST.yaml)
+    MANIFEST.yaml              — dependency pins (skills, models, CLI versions)
+    skills/                    — copies of required skill files
+
   docs/
-    design-decisions.md        — 13 проектных решений паттерна (из bake-off)
-    v4-to-v5.md                — что изменилось и почему (по результатам серии)
-    timing-analysis.md         — декомпозиция времени v4, причины 81 мин
-  
+    design-decisions.md        — 13 design decisions
+    v4-to-v5.md                — what changed and why
+    timing-analysis.md         — v4 time decomposition, v5 optimizations
+
   examples/
-    TASK.md                    — канонический пример задания (sliding-counter)
-    judge.sh                   — детерминированный судья (для верификации команды)
+    TASK.md                    — canonical example task (gRPC sliding-counter)
+    judge.sh                   — deterministic judge (15 checks)
 ```
 
 ## Code Style
 
-Контракты агентов — markdown с YAML frontmatter:
+Agent contracts are markdown with YAML frontmatter:
 
 ```yaml
 ---
-description: Тимлид — оркестрация команды разработки по openspec-циклу
+description: "Team lead — openspec cycle + skill mapping + evidence-based tasks"
 mode: primary
 permission:
   task:
@@ -81,46 +85,43 @@ permission:
 ---
 ```
 
-Тело — на русском (или языке команды), сухо, структурно, без воды.
-Каждый контракт ≤ 60 строк (v5-предел; v1 был ~20, v4 ~40).
+Body: concise, structured, no filler. Each contract <= 60 lines.
 
 ## Testing Strategy
 
-- **Детерминированный судья** (`examples/judge.sh`) — независимая проверка результата
-- **openspec validate** — валидность change-артефактов после каждого коммита
-- **Evidence-based `[x]`** — каждая отметка в tasks.md обязана содержать команду + результат
-- Прогон на эталонном TASK.md (sliding-counter) — сквозная проверка команды
+- **Deterministic judge** (`examples/judge.sh`) — independent output verification
+- **openspec validate** — change artifact validity after every commit
+- **Evidence-based `[x]`** — every checkbox in tasks.md must include command + result
+- Canonical TASK.md run — end-to-end team verification
 
 ## Boundaries
 
 **Always:**
-- Все артефакты — только внутри репозитория проекта
-- `[x]` — только с доказательством (команда + результат)
-- Fail-loud: сбой скилла/CLI → фиксация в DECISIONS.md → retry/обход
-- Атомарный коммит = одна задача (с task-номером в сообщении)
-- После каждого коммита — openspec validate
+- All artifacts stay inside the project repository
+- `[x]` only with proof (command + result)
+- Fail-loud: skill/CLI failure → log to DECISIONS.md → retry/workaround
+- Atomic commit = one task (with task reference in message)
+- openspec validate after every commit
 
 **Ask first:**
-- Изменение контрактов агентов (это ядро паттерна)
-- Добавление новых ролей
-- Смена модельного роутинга
+- Modifying agent contracts (this is the pattern's core)
+- Adding new roles
+- Changing model routing
 
 **Never:**
-- Код плагина / TypeScript (философия: контракты, не код)
-- Внешние state-каталоги (`~/.anything`) — только внутри проекта
-- Удаление данных на NAS или в любых хранилищах
-- Секреты в артефактах
+- Framework/plugin TypeScript code (philosophy: contracts, not code)
+- External state directories (`~/.anything`) — only inside the project
+- Deleting data on any storage system
+- Secrets in artifacts
 
 ## Success Criteria
 
-1. `install.sh` копирует 5 файлов — команда готова к работе за < 1 мин
-2. На эталонном TASK.md команда v5 даёт: judge 15/15, покрытие > 90 %,
-   main > 70 %, ≤ 55 мин, ≤ 450 k input, 0 вмешательств оператора
-3. Контракты читаются человеком за 5 минут (все 5 файлов)
-4. Изменение контракта (например, добавить роль) — правкой одного файла
+1. `install.sh` copies 5 files — team ready in < 1 minute
+2. On the canonical TASK.md the v5 team achieves: judge 15/15, coverage > 90%,
+   main > 70%, <= 55 minutes, <= 450k input tokens, 0 operator interventions
+3. All 5 contracts readable by a human in 5 minutes
+4. Adding a role = editing one file
 
 ## Open Questions
 
-1. Нужен ли тонкий плагин для авто-гейтов (openspec validate hook) — или судья/CI достаточно?
-2. Публиковать на GitHub (публичное) или держать приватным в ~/Sync/Repo?
-3. Версионировать как semver (v5.0.0) или git-тегами (v5)?
+(none currently)

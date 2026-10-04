@@ -1,0 +1,58 @@
+meta:
+  name: opencode-native-team
+  version: 5.0.0
+  license: MIT
+runtime:
+  opencode:
+    version: '>=1.18'
+    pinned: 1.18.31
+process:
+  openspec:
+    version: '>=1.14'
+    pinned: 1.14.0
+    source: npm:@fission-ai/openspec
+    vendor: false
+discipline:
+  agent-skills:
+    source: github.com/addyosmani/agent-skills
+    pinned: main@2026-10-04
+    vendor: true
+    skills:
+    - name: spec-driven-development
+      path: skills/spec-driven-development/SKILL.md
+      sha256: f7129bca8742bad73f60209bd237e8b10dab6f1fae8576dc552fb1923bc1e721
+    - name: constraint-driven-development
+      path: skills/constraint-driven-development/SKILL.md
+      sha256: 06479d4305f286d23cfb99f5dc85695896785269664e1f6a8d800e3b71e70c10
+    - name: planning-and-task-breakdown
+      path: skills/planning-and-task-breakdown/SKILL.md
+      sha256: ed0f90cc5951ddd4bcab7f871f64efec93a49af9279ef93bc470da77ad8da3f7
+    - name: doubt-driven-development
+      path: skills/doubt-driven-development/SKILL.md
+      sha256: 6fa1fcd8420c28daf7e53c5b08b0f20b907911efd2a6d9bce0b9740da20a4008
+    - name: api-and-interface-design
+      path: skills/api-and-interface-design/SKILL.md
+      sha256: 5dafd0c44a3aabf11cae5bcb34f6fcc24dfa5c01ba6e0d3176bce997f4d68bc8
+    - name: incremental-implementation
+      path: skills/incremental-implementation/SKILL.md
+      sha256: df66536610071727feae1ca95f3c391c248ad828041750ccd3699cce763aa00b
+    - name: test-driven-development
+      path: skills/test-driven-development/SKILL.md
+      sha256: 7c0c6ac057c19d7f8be65d9f49c3a638703b868f4625c78b70da5439d5d74fca
+    - name: debugging-and-error-recovery
+      path: skills/debugging-and-error-recovery/SKILL.md
+      sha256: 21f3960f5d7ae2cc95c40896545004dbbcbbd752ea65fc2d53962554d4174220
+    - name: code-review-and-quality
+      path: skills/code-review-and-quality/SKILL.md
+      sha256: d4ec6843e78a8ab2049185d7c2742e2f1e343143c6c915eb5b4f9a3a00a44f94
+    - name: security-and-hardening
+      path: skills/security-and-hardening/SKILL.md
+      sha256: 2e3fc60eed5aba97fe416f3f3c9317fdb014a682925ec70a733c3ff99e4b9858
+models:
+  recommended:
+    main: zhipuai-coding-plan/glm-5.3
+    fast: zhipuai-coding-plan/glm-5.3-flash
+  alternatives:
+  - anthropic/claude-sonnet-*
+  - google/gemini-*
+  - openai/gpt-*
