@@ -312,7 +312,7 @@ SPAWNS = sum(d["spawns"] for a, d in agents.items() if a != "orchestrator")
 tin = sum(s["tin"] for s in SESSIONS)
 tout = sum(s["tout"] for s in SESSIONS)
 last_act = max((s["updated"] for s in SESSIONS), default=NOW)
-active = NOW - last_act < 90_000
+active = NOW - last_act < 180_000
 NERR = sum(ERR_TOOLS.values())
 
 # stage stepper: last orchestrator text → keywords; fallback: last active agent
@@ -375,7 +375,7 @@ agent_rows = "".join(
     f"<td>{html.escape(d['model'])}</td><td class=num>{fmt_k(d['tin'])}</td>"
     f"<td class=num>{fmt_k(d['tout'])}</td>"
     f"<td class=num>{fmt_ms(max(NOW - d['last'], 0))} ago</td>"
-    f"<td>{'<span class=live>active</span>' if NOW - d['last'] < 90_000 else 'idle'}</td></tr>"
+    f"<td>{'<span class=live>active</span>' if NOW - d['last'] < 180_000 else 'idle'}</td></tr>"
     for a, d in sorted(agents.items())
 )
 
