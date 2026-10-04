@@ -175,8 +175,7 @@ def load_tasks(start_ms=None):
             continue  # archived before this run — another run's history
         changes.append(("archive: " + name, entries(path)))
 
-    done = sum(1 for _, es in changes
-               for it in es if it[0] == "t" and it[1])
+    done = sum(1 for _, es in changes for it in es if it[0] == "t" and it[1])
     total = sum(1 for _, es in changes for it in es if it[0] == "t")
     return done, total, changes
 
@@ -193,7 +192,7 @@ def load_commits(start_ms, have_state):
         if have_state and t < start_ms - 60_000:
             continue
         pts.append(max(0.0, (t - start_ms) / 60000))
-        msgs.append(msg[:80])
+        msgs.append(msg)
     return pts, msgs
 
 
@@ -451,7 +450,7 @@ for name, es in TASK_CHANGES:
     task_html += f"<div class=tch>{html.escape(name)} — {d_n}/{t_n}</div>"
     for it in es:
         if it[0] == "h":
-            task_html += f'<div class=tw>{html.escape(it[1])}</div>'
+            task_html += f"<div class=tw>{html.escape(it[1])}</div>"
             continue
         _, d, depth, title = it
         cls = "tdone" if d else "ttodo"
@@ -465,12 +464,13 @@ for name, es in TASK_CHANGES:
 log_html = "".join(
     f"<div class=ev><span class=t>{datetime.datetime.fromtimestamp(t / 1000).strftime('%H:%M:%S')}</span>"
     f'<span class="ag" style="color:{agent_color(a)}">{html.escape(a)}{agent_badge(a)}</span>'
-    f" {html.escape(x[:150])}</div>"
+    f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(x)}</span></div>"
     for t, a, x in TEXTS
 )
 
 commit_entries = [
-    f"<div class=ev><span class=t>+{p:.0f}m</span> {html.escape(m)}</div>"
+    f"<div class=ev><span class=t>+{p:.0f}m</span>"
+    f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(m)}</span></div>"
     for p, m in zip(reversed(COMMITS_T), reversed(COMMITS_M))
 ]
 commits_list = "".join(commit_entries[:40]) or "<div class=muted>none yet</div>"
@@ -490,7 +490,7 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  button:hover{{border-color:var(--acc);color:var(--acc)}} button:active{{transform:translateY(1px)}}
  .meta{{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);margin:5px 0 14px}}
  .cards{{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px}}
- .card{{flex:0 0 auto;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 12px;white-space:nowrap}}
+ .card{{flex:1 1 0;min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
  .card .v{{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}}
  .card .l{{font-size:11px;color:var(--muted);margin-top:2px}}
  .bar{{height:10px;background:var(--grid);border-radius:5px;overflow:hidden;margin:4px 0 12px;display:flex;align-items:center;gap:10px}}
@@ -511,6 +511,9 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  .ev{{padding:3px 0;border-bottom:1px solid var(--grid);display:flex;gap:8px;align-items:baseline}}
  .ev .t{{color:var(--muted);white-space:nowrap;min-width:56px;display:inline-block;text-align:right}} .ev .ag{{font-weight:600;min-width:150px;white-space:nowrap}}
  .badge{{font-family:ui-monospace,monospace;font-size:9px;font-weight:700;border:1px solid;border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:1px}}
+ .tx{{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw;cursor:pointer}}
+ .tx.exp{{white-space:normal;max-width:none}}
+ .pt:hover{{transform:scale(1.6);transform-box:fill-box;transform-origin:center}}
  .tch{{font-family:ui-monospace,monospace;color:var(--muted);font-size:11.5px;margin-top:4px}}
  .tw{{font-weight:700;font-size:12px;margin:7px 0 2px;text-transform:uppercase;letter-spacing:.04em;color:var(--fg)}}
  .ttodo{{padding:1px 0 1px 6px;font-size:12.5px;font-weight:600}}
@@ -530,7 +533,7 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  &middot; last activity {fmt_ms(max(NOW - last_act, 0))} ago &middot; tool errors: {err_str}</div>
 <div class=cards>{cards}</div>
 <div class=bar><div></div><span class=barlab>{pct}%</span></div>
-<div class=stepper>{stepper}</div>
+<div class=stepper><span class=muted style="margin-right:8px">run stage:</span>{stepper}</div>
 <div class=panel><h2>Commit timeline</h2>{sparkline(COMMITS_T, COMMITS_M, NOW_MIN)}</div>
 <div class=cols>
  <div class=panel><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawns</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
