@@ -170,6 +170,19 @@ An `opencode.json.example` with Go presets is installed by `install.sh`.
 > reviewer map only down to the contract's own rules — `validate.py`
 > enforces the superset.
 
+## Stack Skills (per-project extensions)
+
+Add technology-specific skills (golang, sql, k8s…) without touching contracts:
+
+1. Declare them in `<project>/.opencode/team-skills.json` (see
+   `examples/team-skills.json`) — each entry names a skill, a source path
+   (local pool) and the OpenSpec stages where it joins the dispatch table.
+2. Sync: `scripts/sync-skills.sh <project>` installs the skills into
+   `.opencode/skills/` and pins every file in `skills.lock` (sha256 — same
+   integrity model as the vendor MANIFEST). Re-run verifies; `--update`
+   re-copies from sources.
+3. The orchestrator picks them up automatically at the declared stages.
+
 ## Vendored Skills
 
 10 skills (12 files) from [agent-skills](https://github.com/addyosmani/agent-skills)

@@ -1,0 +1,15 @@
+{
+  "$comment": "Copy to <project>/.opencode/team-skills.json — stack-specific skills that extend the orchestrator's skill mapping. 'stages' entries must match the mapping-table stages: proposal | design | tasks | apply | verify. Sync with: scripts/sync-skills.sh <project-dir>",
+  "skills": [
+    {
+      "name": "golang-pro",
+      "source": "~/.agents/skills/golang-pro",
+      "stages": ["apply", "verify"]
+    },
+    {
+      "name": "sql-query-optimization",
+      "source": "~/.agents/skills/sql-query-optimization",
+      "stages": ["design", "apply", "verify"]
+    }
+  ]
+}

@@ -271,8 +271,16 @@ def main():
                 err(f"{cf}: $ARGUMENTS/$1 placeholder missing")
     s.ok("commands /team and /team-change valid")
 
-    s = Step("[7] shell scripts: syntax")
-    for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh"):
+    s = Step("[7] shell scripts: syntax + skills config schema")
+    ts = json.load(open("examples/team-skills.json", encoding="utf-8"))
+    for ent in ts.get("skills", []):
+        if not ent.get("name") or not ent.get("source"):
+            err("examples/team-skills.json: entry missing name/source")
+        for st in ent.get("stages", []):
+            if st not in ("proposal", "design", "tasks", "apply", "verify"):
+                err(f"examples/team-skills.json: invalid stage {st!r}")
+    for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh",
+               "scripts/sync-skills.sh"):
         r = subprocess.run(["bash", "-n", sh], capture_output=True, text=True)
         if r.returncode != 0:
             err(f"{sh}: {r.stderr.strip()}")

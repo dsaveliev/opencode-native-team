@@ -44,6 +44,10 @@ Two discipline layers: OpenSpec (process) and agent-skills (execution).
 | verify (per task) | code-review-and-quality (2 axes: boundaries + security) | after tester, before commit |
 | verify (final) | code-review-and-quality (5 axes) + security-and-hardening | before closing change |
 
+**Stack extensions:** if `.opencode/team-skills.json` exists, its named skills
+join the stages listed there — invoke alongside the base mapping. A skill
+missing from `.opencode/skills/` → note in DECISIONS.md, skip, continue.
+
 ## Delegation
 
 - **Task order**: coder → tester → reviewer (2 axes) → team lead commits.
