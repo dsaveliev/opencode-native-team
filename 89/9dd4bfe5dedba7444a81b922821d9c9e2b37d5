@@ -1,0 +1,41 @@
+scripts/test-dashboard.py
+  s_d3b744d29667a2::t_765cc052076795 1-121
+scripts/team-dashboard.sh
+  s_d3b744d29667a2::t_24ac7ab42e9938 2-4,12-14,30,32,37-38,42-47,65-69,71-74
+scripts/gen-team-dashboard.py
+  s_d3b744d29667a2::t_c8e0eddda7f886 2,4-10,12,27,42-51,59-63,77,104,106,117-118,131-132,134,137-142,144-146,148-150,158-164,168-169,173-181,200,203-204,206-212,235,241-242,266-267,274-275,277,289-290,293,296,305-306,311,316-321,330-335,342,354-360,367,369,373,382,384-385,387-391,395-396,406,408-409,411-414,416-421,423-435,437,439-447,451-453,456,458-460,462,468-484,488-491
+  s_d3b744d29667a2::t_95397b977a1b54 70,95-97,111-112,143,152-157,165-167,170-172,213-216,219,222,227,230,239-240,243-247,259,268-272,294,302,322-329,336-341,343-353,374,386,450,455
+  s_d3b744d29667a2::t_612573cc60a4af 273
+docs/review-v5.1.5.md
+  s_6258caa3048804::t_ae952f32c6bcf6 1-481
+docs/reviews.md
+  s_d3b744d29667a2::t_6605a70e258557 3,63-87
+install.sh
+  s_d3b744d29667a2::t_01036d67c98530 102-110
+scripts/validate.py
+  s_d3b744d29667a2::t_29a8bb5b0975bd 289-292,357-365
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "899dd4bfe5dedba7444a81b922821d9c9e2b37d5",
+  "prompts": {},
+  "sessions": {
+    "s_6258caa3048804": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d83dcf1-f1d0-4259-b5f4-b986e0114b7a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
