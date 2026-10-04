@@ -17,10 +17,18 @@ so cause-effect relationships ("review feedback → fix → commit") never get l
 
 ## 2. permission.task deny-by-default
 
-**Decision:** `"*": "deny"` + explicit allow for exactly 4 roles.
+**Decision:** `"*": "deny"` + explicit allow for exactly 4 roles. All subagents
+also carry `task: { "*": "deny" }` to prevent nested delegation.
 
-**Rationale:** Structural protection against spontaneous delegation to external
-agents. Predictability over flexibility.
+**Rationale:** Structural protection against spontaneous delegation. In opencode,
+most permissions default to `allow` — without explicit denies, any subagent can
+spawn sub-subagents.
+
+**Note:** `external_directory: { "*": "deny" }` converts the environment's
+auto-reject (headless mode) into a deterministic, immediate denial. This doesn't
+change the outcome (the v4 tester was auto-rejected either way) but makes the
+failure mode predictable and debuggable. The actual v4 fix is the contract
+text: "all artifacts inside the repo, temp files in ./tmp/".
 
 ## 3. Planner and reviewer are read-only
 

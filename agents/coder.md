@@ -10,6 +10,12 @@ permission:
     "git commit*": "deny"
     "git push*": "deny"
     "git reset*": "deny"
+    "git revert*": "deny"
+    "git stash*": "deny"
+    "git rebase*": "deny"
+    "git am*": "deny"
+    "git cherry-pick*": "deny"
+    "git checkout -- *": "deny"
     "git checkout -- *": "deny"
 ---
 You are the developer. Follow test-driven-development: red → green → refactor.

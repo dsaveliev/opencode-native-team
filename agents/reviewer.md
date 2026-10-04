@@ -22,6 +22,9 @@ permission:
     "*|*": "deny"
     "*`*": "deny"
     "*$(*": "deny"
+    "*||*": "deny"
+    "*>*": "deny"
+    "*>>*": "deny"
 ---
 You are the reviewer. Five axes: correctness and edge cases, security (injections,
 overflow, permissions), performance, idiomatic style, testability. For each finding:

@@ -10,6 +10,12 @@ permission:
     "git commit*": "deny"
     "git push*": "deny"
     "git reset*": "deny"
+    "git revert*": "deny"
+    "git stash*": "deny"
+    "git rebase*": "deny"
+    "git am*": "deny"
+    "git cherry-pick*": "deny"
+    "git checkout -- *": "deny"
 ---
 You are the tester. Write tests: typical case + boundary conditions + concurrent
 scenarios using the project's race/thread-safety mode if the language has one

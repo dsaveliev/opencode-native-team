@@ -1,11 +1,11 @@
-# Задание: sliding-counter (gRPC, Go)
+# Assignment: sliding-counter (gRPC, Go)
 
-Спроектируй и реализуй на Go gRPC-сервис `sliding-counter` — счётчик событий
-со скользящим окном и лимитом на ключ.
+Design and implement a gRPC service `sliding-counter` in Go — an event counter
+with a sliding window and per-key rate limiting.
 
-## Контракт (обязателен точно)
+## Contract (mandatory, exact)
 
-proto3, package `counter.v1`, сервис `Counter`:
+proto3, package `counter.v1`, service `Counter`:
 
 ```proto
 message IncrRequest { string key = 1; int64 n = 2; }
@@ -13,34 +13,33 @@ message IncrResponse { int64 count = 1; }
 service Counter { rpc Incr(IncrRequest) returns (IncrResponse); }
 ```
 
-- Включи gRPC server reflection и стандартный `grpc.health.v1.Health`.
-- Конфигурация через окружение: `PORT` (default `18080`),
+- Enable gRPC server reflection and standard `grpc.health.v1.Health`.
+- Configuration via environment: `PORT` (default `18080`),
   `WINDOW_SECONDS` (default `2`), `LIMIT` (default `5`).
 
-## Поведение
+## Behavior
 
-- `Incr` регистрирует события по ключу `key` в скользящем окне
-  `WINDOW_SECONDS` секунд и возвращает `count` — число событий по ключу
-  за активное окно.
-- Не более `LIMIT` событий на ключ в окне; запрос сверх лимита завершается
-  gRPC-статусом `RESOURCE_EXHAUSTED`.
+- `Incr` registers events for key `key` within a sliding window of
+  `WINDOW_SECONDS` seconds and returns `count` — the number of events for the
+  key within the active window.
+- At most `LIMIT` events per key within the window; requests exceeding the limit
+  return gRPC status `RESOURCE_EXHAUSTED`.
 
-Все поведенческие неоднозначности — твои решения. Каждую зафиксируй в
-`DECISIONS.md`: одной записью на неоднозначность, формат «вопрос — принятое
-решение — обоснование».
+All behavioral ambiguities are your decisions. Record each one in `DECISIONS.md`:
+one entry per ambiguity, format "question — decision — rationale".
 
-## Требования к результату
+## Deliverables
 
-1. Go-модуль; `make build` собирает `bin/server`; `make run` запускает;
-   `make test` гоняет тесты.
-2. `go test -race ./...` зелёные; конкурентные сценарии обязательны.
-3. `go vet` и `gofmt` чистые.
-4. `Dockerfile` multi-stage (сборка + минимальный runtime).
-5. `README.md`: сборка, запуск, тесты, все env-переменные.
-6. Атомарные git-коммиты по ходу работы; итог — рабочий код в ветке `main`.
+1. Go module; `make build` produces `bin/server`; `make run` starts it;
+   `make test` runs tests.
+2. `go test -race ./...` green; concurrent scenarios required.
+3. `go vet` and `gofmt` clean.
+4. `Dockerfile` multi-stage (build + minimal runtime).
+5. `README.md`: build, run, test, all environment variables.
+6. Atomic git commits throughout; final result on branch `main`.
 
-## Процесс
+## Process
 
-Работай как команда: планирование до кода, декомпозиция на задачи,
-реализация, тесты, ревью. Артефакты процесса (план, декомпозиция) сохрани
-в репозитории рядом с кодом.
+Work as a team: planning before code, task decomposition, implementation,
+testing, review. Preserve process artifacts (plan, decomposition) in the
+repository alongside the code.

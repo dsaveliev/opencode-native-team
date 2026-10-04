@@ -18,6 +18,9 @@ permission:
     "*|*": "deny"
     "*`*": "deny"
     "*$(*": "deny"
+    "*||*": "deny"
+    "*>*": "deny"
+    "*>>*": "deny"
 ---
 You are the team planner. Return: list of ambiguities (question — options —
 recommendation), task decomposition (acceptance criteria + edge cases + verification
