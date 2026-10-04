@@ -3,7 +3,7 @@ description: Tester — concurrency tests; main must be testable
 mode: subagent
 permission:
   task: { "*": "deny" }
-  external_directory: { "*": "deny" }
+  external_directory: deny
   edit: { "*": "allow" }
   bash:
     "*": "allow"

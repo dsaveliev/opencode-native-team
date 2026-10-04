@@ -5,8 +5,8 @@ temperature: 0.1
 permission:
   edit: { "*": "deny" }
   task: { "*": "deny" }
-  external_directory: { "*": "deny" }
-  webfetch: { "*": "deny" }
+  external_directory: deny
+  webfetch: deny
   bash:
     "*": "deny"
     "git diff*": "allow"

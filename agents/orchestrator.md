@@ -2,7 +2,7 @@
 description: "Team lead — openspec cycle + skill mapping + evidence-based tasks"
 mode: primary
 permission:
-  external_directory: { "*": "deny" }
+  external_directory: deny
   task:
     "*": "deny"
     "planner": "allow"

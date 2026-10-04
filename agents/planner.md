@@ -4,8 +4,8 @@ mode: subagent
 permission:
   edit: { "*": "deny" }
   task: { "*": "deny" }
-  external_directory: { "*": "deny" }
-  webfetch: { "*": "deny" }
+  external_directory: deny
+  webfetch: deny
   bash:
     "*": "deny"
     "ls": "allow"

@@ -3,7 +3,7 @@ description: Developer — TDD implementation per the plan
 mode: subagent
 permission:
   task: { "*": "deny" }
-  external_directory: { "*": "deny" }
+  external_directory: deny
   edit: { "*": "allow" }
   bash:
     "*": "allow"
