@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_d3b744d29667a2::t_76a1ba4e10ccc4 12-14
+scripts/validate.py
+  s_d3b744d29667a2::t_7f82aa994c5f19 100-116,232-235,237-240,243-245,253-256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5143227509f680cdf8d057ea3e0f2bc05eaa3baa",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
