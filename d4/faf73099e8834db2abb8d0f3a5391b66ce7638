@@ -1,0 +1,28 @@
+scripts/gen-team-dashboard.py
+  s_d3b744d29667a2::t_ecf415f6ff8ac2 449-455
+  s_d3b744d29667a2::t_97eed6badc7631 178
+  s_d3b744d29667a2::t_831c229b7ecfce 146-147,152,156
+  s_d3b744d29667a2::t_f53101c03e5777 153,155,219,222,227,230,239,244,247,258-262,293-300,304-306,456
+  s_d3b744d29667a2::t_52c9a21c84fe8d 179-180,235,307,431,459-462,492-493,512,515,525
+scripts/test-dashboard.py
+  s_d3b744d29667a2::t_f0a1aa0ae27005 55-56
+  s_d3b744d29667a2::t_fdf2aa7b92dceb 94-96
+  s_d3b744d29667a2::t_d0836352a4fdbc 119-128
+  s_d3b744d29667a2::t_6f921a351d457a 141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d4faf73099e8834db2abb8d0f3a5391b66ce7638",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
