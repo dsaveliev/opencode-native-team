@@ -5,9 +5,11 @@ agent: orchestrator
 
 Pre-flight — live dashboard (config: `.opencode/team-dashboard.json`, default mode "ask"):
 - mode "never" -> skip silently. mode "always" -> start now.
-- mode "ask" (or file absent) -> if a user is present in this session, ask ONCE
-  via the question tool: "Create live dashboard for this run?"; headless run
-  (no user) -> skip silently.
+- mode "ask" (or file absent) -> ALWAYS attempt the question tool exactly once:
+  "Create live dashboard for this run?". Do NOT decide yourself whether a user
+  is present — if the tool is unavailable or errors, THAT is the headless
+  signal: skip silently and continue. Never skip the attempt by judging the
+  session "probably headless".
 - Start: `bash .opencode/scripts/team-dashboard.sh start "$(pwd)"`
 - On finish — success or failure: `bash .opencode/scripts/team-dashboard.sh stop "$(pwd)"`
 
