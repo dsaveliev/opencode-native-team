@@ -1,0 +1,48 @@
+scripts/test-dashboard.py
+  s_d3b744d29667a2::t_d339483b61a1b6 73-74,79-80
+  s_d3b744d29667a2::t_16131e9c86332b 114-124,143-147
+agents/tester.md
+  s_d3b744d29667a2::t_da1f555884d19a 24-29
+docs/review-v5.1.6.md
+  s_6258caa3048804::t_97a52341c45ca0 446-456,458
+  s_6258caa3048804::t_098446c2afd37f 1-445,457,459-543
+docs/reviews.md
+  s_6258caa3048804::t_1d7de261c5bf87 3,64-73,99-101,105-119
+scripts/gen-team-dashboard.py
+  s_d3b744d29667a2::t_aa15b0d4565a7b 445-460,466,472
+  s_d3b744d29667a2::t_676f8c00f8aeb3 491-494,586,615,639-646,648-654,656-660,662
+  s_d3b744d29667a2::t_69007963a46707 313-314,321-322,325-327
+  s_d3b744d29667a2::t_ae730c0cb588b6 323-324
+examples/team-dashboard.json
+  s_d3b744d29667a2::t_c23943d9941997 2,5-6
+README.md
+  s_d3b744d29667a2::t_febabaf619af9b 187-192
+SPEC.md
+  s_d3b744d29667a2::t_0e2133d7b6742f 61-68
+scripts/validate.py
+  s_d3b744d29667a2::t_c715a01a1a325a 289-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a5a111d501a6bc99c6dcea9828e7d9bed37b047a",
+  "prompts": {},
+  "sessions": {
+    "s_6258caa3048804": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d83dcf1-f1d0-4259-b5f4-b986e0114b7a",
+        "model": "unknown"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
