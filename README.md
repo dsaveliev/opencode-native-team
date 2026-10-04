@@ -133,6 +133,12 @@ An `opencode.json.example` with Go presets is installed by `install.sh`.
 > map is merged behind the contract's frontmatter denies — its allows get
 > defeated (this exact bug shipped once: the reviewer's `go test` allow was
 > silently overridden until a live run caught it).
+>
+> **Autonomous (headless) runs** additionally need a top-level
+> `"permission": {"bash": {"*": "allow"}}` in the project config, or every
+> command falls back to your global default (`ask` = auto-reject headless).
+> This does not weaken subagent contracts — agent frontmatter denies take
+> precedence over top-level allows (probed).
 
 ## Vendored Skills
 
