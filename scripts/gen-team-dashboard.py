@@ -292,13 +292,11 @@ log_html = "".join(
     for t, a, x in TEXTS
 )
 
-commits_list = (
-    "".join(
-        f"<div class=ev><span class=t>+{p:.0f}m</span> {html.escape(m)}</div>"
-        for p, m in zip(reversed(COMMITS_T), reversed(COMMITS_M))
-    )[:40]
-    or "<div class=muted>none yet</div>"
-)
+commit_entries = [
+    f"<div class=ev><span class=t>+{p:.0f}m</span> {html.escape(m)}</div>"
+    for p, m in zip(reversed(COMMITS_T), reversed(COMMITS_M))
+]
+commits_list = "".join(commit_entries[:40]) or "<div class=muted>none yet</div>"
 
 page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="refresh" content="5">
