@@ -128,6 +128,8 @@ try:
         and "class=line/>" not in page,
     )
     check("activity lanes present", page.count('class="lat"') >= 1)
+    check("hover popups via data-tip", 'data-tip="' in page and "<title>" not in
+          re.search(r"<svg.*?</svg>", page, re.S).group(0))
     check("tasks+commits share a row", "class=row2" in page)
     # atomic write: no leftover tmp
     check(
