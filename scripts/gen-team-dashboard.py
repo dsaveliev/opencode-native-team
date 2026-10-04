@@ -417,9 +417,9 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  button{{font-family:inherit;font-size:12px;padding:4px 14px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--fg);cursor:pointer}}
  button:hover{{border-color:var(--acc);color:var(--acc)}} button:active{{transform:translateY(1px)}}
  .meta{{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);margin:5px 0 14px}}
- .cards{{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:10px}}
- .card{{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 14px;display:flex;align-items:baseline;gap:14px}}
- .card .v{{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;min-width:96px}}
+ .cards{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}}
+ .card{{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 14px;min-width:110px}}
+ .card .v{{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}}
  .card .l{{font-size:11px;color:var(--muted);margin-top:2px}}
  .bar{{height:10px;background:var(--grid);border-radius:5px;overflow:hidden;margin:4px 0 12px;display:flex;align-items:center;gap:10px}}
  .bar>div{{height:100%;background:var(--acc);width:{pct}%}}
