@@ -1,0 +1,42 @@
+scripts/team-dashboard.sh
+  s_d3b744d29667a2::t_1377497bc41923 1-86
+examples/team-dashboard.json
+  s_d3b744d29667a2::t_988075d3dd066d 1-6
+scripts/gen-team-dashboard.py
+  s_d3b744d29667a2::t_8016826d6b83fa 1-125,132-150,154-155,157,163-164,166-168,170-209,212-322,324-338
+  s_d3b744d29667a2::t_2dfd0ea7412760 126
+  s_d3b744d29667a2::t_c77c19cfb159b6 127-131
+  s_d3b744d29667a2::t_0fc611666c7918 151-153
+  s_d3b744d29667a2::t_bee85e19d536cc 156
+  s_d3b744d29667a2::t_7fb11581545c43 158-162
+  s_d3b744d29667a2::t_2b8590276e61e4 165
+  s_d3b744d29667a2::t_3633677be46a02 169
+  s_d3b744d29667a2::t_65a3cddbe79496 210-211
+  s_d3b744d29667a2::t_1a6fd37db23269 323
+README.md
+  s_d3b744d29667a2::t_2d412becb1b5a5 173-187
+commands/team-change.md
+  s_d3b744d29667a2::t_16b6587b75a681 5-13
+commands/team.md
+  s_d3b744d29667a2::t_4b683c6502d2d9 5-13
+install.sh
+  s_d3b744d29667a2::t_668e909cac1c4d 32-39
+scripts/validate.py
+  s_d3b744d29667a2::t_3e163907852702 282-288,290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "b9bea145570c0d82877e7d8d5fbb741ccba239f6",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
