@@ -113,8 +113,8 @@ try:
     check("coverage placeholder", "&mdash;</div><div class=l>test coverage %" in page)
     # svg has explicit width/height (Safari renders height:auto-only svg at 0)
     check(
-        "timeline svg has width/height attrs",
-        re.search(r'<svg width="860" height="120"', page) is not None,
+        "activity svg has width/height attrs",
+        re.search(r'<svg width="860" height="\d+"', page) is not None,
     )
     check(
         "nested task indented",
@@ -122,10 +122,13 @@ try:
     )
     check(
         "svg classes quoted",
-        'class="line"/>' in page
-        and 'class="grid"/>' in page
+        'class="grid"/>' in page
+        and 'class="dia"' in page
+        and 'class="axis"' in page
         and "class=line/>" not in page,
     )
+    check("activity lanes present", page.count('class="lat"') >= 1)
+    check("tasks+commits share a row", "class=row2" in page)
     # atomic write: no leftover tmp
     check(
         "no .tmp leftover",
