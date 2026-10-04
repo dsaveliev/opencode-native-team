@@ -1,9 +1,11 @@
 # Review Rounds
 
 Three external review rounds shaped v5 → v5.1 → v5.1.1. Original reviews were
-received in Russian and live in git history (commits `266708d^..ffd7efb`);
-commit messages of `266708d`, `ffd7efb`, `ecb8051` reference them. English
-summaries with resolutions:
+received in Russian. Round 1 lives in git history only
+(`git show 266708d:docs/audit-v5.md`); rounds 2-4 are in
+`docs/review-v5.1*.md` (round 2 was reconstructed verbatim from
+correspondence — it had never been committed at the time). English summaries
+with resolutions:
 
 ## Round 1 — initial audit (of v5)
 
@@ -41,6 +43,6 @@ summaries with resolutions:
 | M-5 n=1 results attributed to named third parties | anonymized + "data on request" |
 | M-6 Security Model overstated protections | table matches code; every vendored file hashed |
 | M-7 redundant deny patterns; newline uncaught | `*||*`/`*>>*` removed, newline pattern added |
-| M-8 `.opencode/opencode.json` read-path unverified | verified empirically per run (model routing observed in session DB) |
+| M-8 `.opencode/opencode.json` read-path unverified | `scripts/check-model-routing.sh` + saved per-run artifact (`results/*-models-routing.txt`) |
 | tools/dashboard-gen.py violated SPEC (external writes) | removed from repo |
 | C1 no CI | `.github/workflows/ci.yml` runs `scripts/validate.py` |

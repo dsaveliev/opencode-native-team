@@ -1,3 +1,8 @@
+# Upstream revision pins (integrity is the hashes below; these identify
+# what to diff against when pulling updates):
+#   opencode     >= 1.18.31
+#   openspec     npm:@fission-ai/openspec >= 1.14.0
+#   agent-skills github.com/addyosmani/agent-skills main@1401c8b8030e023baeebb31781a6653fe8e93026 (fetched 2026-10-04)
 # Every vendored file with sha256; verified by install.sh (strict equality,
 # no extra files allowed). Source: github.com/addyosmani/agent-skills
 skills/api-and-interface-design/SKILL.md: 5dafd0c44a3aabf11cae5bcb34f6fcc24dfa5c01ba6e0d3176bce997f4d68bc8

@@ -62,27 +62,34 @@ met COVERAGE_CMD "$COV_CMD"
 
 log
 log "## 3. gRPC battery (port $PORT)"
-log "Phase A: documented defaults (PORT=18080 WINDOW=2s LIMIT=5)"
+log "Phase A: documented defaults (WINDOW=2s LIMIT=5)"
 pkill -f "$RUN/bin/server" 2>/dev/null; sleep 0.5
 SRV_PID=""
 if [ -x bin/server ]; then
-  ./bin/server > "$OUT/server-defaults.log" 2>&1 & SRV_PID=$!
+  PORT=$PORT ./bin/server > "$OUT/server-defaults.log" 2>&1 & SRV_PID=$!
 fi
 for i in $(seq 1 30); do health_ok && break; sleep 0.5; done
 if health_ok; then pass "A1 defaults: health SERVING"; else fail "A1 health with defaults (log: $(tail -1 "$OUT/server-defaults.log" 2>/dev/null))" HEALTH_FAIL; fi
 if health_ok; then
   R=$(incr judge-defaults 1)
   [ "$(cnt "$R")" = "1" ] && pass "A2 defaults: first Incr -> count=1" || fail "A2 first Incr (resp: $R)" DEFAULTS_FAIL
+  # A3: default window is really 2s — after sleep 3 (> 2s + 1s margin) the
+  # window must have slid. A server hardcoding a longer window returns 2.
+  sleep 3
+  R=$(incr judge-defaults 1)
+  [ "$(cnt "$R")" = "1" ] && pass "A3 default window 2s: slid after 3s -> count=1" || fail "A3 default window (resp: $R) — WINDOW_SECONDS default may be ignored" DEFAULTS_WINDOW_FAIL
 fi
 stop_srv
 
-log "Phase B: WINDOW_SECONDS=10 LIMIT=5 (env override per contract)"
+log "Phase B: WINDOW_SECONDS=10 LIMIT=5 (env override per contract; if the
+server silently kept the 2s default, B2 sequence would break here — so the
+override itself is verified behaviorally by B2-B5)"
 SRV_PID=""
 if [ -x bin/server ]; then
   WINDOW_SECONDS=10 LIMIT=5 PORT=$PORT ./bin/server > "$OUT/server.log" 2>&1 & SRV_PID=$!
 fi
 for i in $(seq 1 30); do health_ok && break; sleep 0.5; done
-if health_ok; then pass "B1 health: SERVING (WINDOW_SECONDS=10 honored: server up)"; else fail "B1 health with env override" B1_FAIL; fi
+if health_ok; then pass "B1 health under env override: SERVING"; else fail "B1 health with env override" B1_FAIL; fi
 
 if health_ok; then
   # B2: sequence 1..4 — 4 sequential grpcurl calls (~0.5s) << 10s window: deterministic

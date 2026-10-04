@@ -5,7 +5,7 @@ Based on four controlled experiments (barebone, +skills, +openspec, combined).
 ## v1 (barebone) — The Baseline
 
 - 5 agents, ~20 lines each, no external layers
-- Result: 15/15 judge, 53.9% weighted coverage (main untested), 43 min, 344k input
+- Result: 15/15 judge (15-check battery of that era; the v5 judge has 18 checks), 53.9% weighted coverage (main untested), 43 min, 344k input
 - Gap: no enforcement — skills available but never invoked
 
 ## v2 (+skills) — Closing the Enforcement Gap
@@ -52,6 +52,8 @@ Based on four controlled experiments (barebone, +skills, +openspec, combined).
 | Metric | v1 | v4 | v5 target |
 |---|---|---|---|
 | Judge | 15/15 | 15/15 | 15/15 |
+
+  (15-check battery; the v5 judge has 18 checks — compare by category, not raw score)
 | Coverage (weighted) | 53.9% | 91.5% | > 93% |
 | Main (cmd) | 0% | 0% | > 70% |
 | Time | 43 min | 81 min | ≤ 55 min |

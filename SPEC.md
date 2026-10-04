@@ -66,7 +66,7 @@ opencode-native-team/
 
   examples/
     TASK.md                    — canonical example task (gRPC sliding-counter)
-    judge.sh                   — deterministic judge (15 checks)
+    judge.sh                   — deterministic judge (18 checks; v1-v4 ran a 15-check battery)
 ```
 
 ## Code Style
@@ -120,7 +120,7 @@ Body: concise, structured, no filler. Contract limits: orchestrator ≤ 90 lines
 ## Success Criteria
 
 1. `install.sh` copies 5 files — team ready in < 1 minute
-2. On the canonical TASK.md the v5 team achieves: judge 15/15 (exit 0), coverage > 90%,
+2. On the canonical TASK.md the v5 team achieves: judge 18/18 (exit 0; v1-v4 history used a 15-check battery — not directly comparable), coverage > 90%,
    main > 70%, <= 60 minutes, <= 450k input tokens, 0 operator interventions
 3. All 5 contracts readable by a human in 5 minutes
 4. Adding a role = editing one file
