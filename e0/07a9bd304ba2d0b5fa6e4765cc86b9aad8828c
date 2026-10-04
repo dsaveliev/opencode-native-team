@@ -1,0 +1,35 @@
+docs/review-v5.1.4.md
+  s_7fc35b7cff42cd::t_2b724546417809 1-260
+examples/opencode.json.example
+  s_d3b744d29667a2::t_4d14ecac50a849 2-6
+README.md
+  s_d3b744d29667a2::t_bf561d8864ab8b 137-142
+docs/reviews.md
+  s_d3b744d29667a2::t_a7ea829cbdf511 3,50-62
+scripts/validate.py
+  s_d3b744d29667a2::t_941f781d122380 210-219,222-231,234,285-286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "e007a9bd304ba2d0b5fa6e4765cc86b9aad8828c",
+  "prompts": {},
+  "sessions": {
+    "s_7fc35b7cff42cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d682a88d-7ff8-4747-b8fb-cf6d07af0649",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
