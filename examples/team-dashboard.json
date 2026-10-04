@@ -1,0 +1,6 @@
+{
+  "$comment": "Copy to <project>/.opencode/team-dashboard.json (optional). mode: ask = the team asks once per run when a user is present (headless runs skip silently); always = start every run; never = off. refresh: seconds between regenerations; open_browser: open the dashboard in the default browser on start.",
+  "mode": "ask",
+  "refresh": 5,
+  "open_browser": true
+}

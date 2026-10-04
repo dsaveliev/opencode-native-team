@@ -170,6 +170,21 @@ An `opencode.json.example` with Go presets is installed by `install.sh`.
 > reviewer map only down to the contract's own rules — `validate.py`
 > enforces the superset.
 
+## Live Dashboard
+
+Every run can carry a live dashboard: agents spawned, task progress, work
+log, commit timeline, token usage, ETA — regenerated from the session DB +
+git + openspec tasks every few seconds, zero dependencies.
+
+- Config `<project>/.opencode/team-dashboard.json` (see
+  `examples/team-dashboard.json`): `mode` = `ask` (default — the team asks
+  once per run via the question tool; headless runs skip silently) |
+  `always` | `never`, plus `refresh` seconds and `open_browser`.
+- `install.sh` drops the scripts into `.opencode/scripts/`; the `/team` and
+  `/team-change` commands start/stop the dashboard automatically.
+- Manual: `.opencode/scripts/team-dashboard.sh start|stop|once|status <dir>`;
+  after stop the final HTML stays in `tmp/team-dashboard.html`.
+
 ## Stack Skills (per-project extensions)
 
 Add technology-specific skills (golang, sql, k8s…) without touching contracts:

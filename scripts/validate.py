@@ -279,8 +279,15 @@ def main():
         for st in ent.get("stages", []):
             if st not in ("proposal", "design", "tasks", "apply", "verify"):
                 err(f"examples/team-skills.json: invalid stage {st!r}")
+    import ast
+    ast.parse(open("scripts/gen-team-dashboard.py", encoding="utf-8").read())
+    dash = json.load(open("examples/team-dashboard.json", encoding="utf-8"))
+    if dash.get("mode") not in ("ask", "always", "never"):
+        err("examples/team-dashboard.json: mode must be ask|always|never")
+    if not isinstance(dash.get("refresh", 5), int) or dash.get("refresh", 5) < 2:
+        err("examples/team-dashboard.json: refresh must be int >= 2")
     for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh",
-               "scripts/sync-skills.sh"):
+               "scripts/sync-skills.sh", "scripts/team-dashboard.sh"):
         r = subprocess.run(["bash", "-n", sh], capture_output=True, text=True)
         if r.returncode != 0:
             err(f"{sh}: {r.stderr.strip()}")

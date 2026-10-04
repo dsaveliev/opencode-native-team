@@ -2,6 +2,15 @@
 description: Implement an existing openspec change (artifacts already written)
 agent: orchestrator
 ---
+
+Pre-flight — live dashboard (config: `.opencode/team-dashboard.json`, default mode "ask"):
+- mode "never" -> skip silently. mode "always" -> start now.
+- mode "ask" (or file absent) -> if a user is present in this session, ask ONCE
+  via the question tool: "Create live dashboard for this run?"; headless run
+  (no user) -> skip silently.
+- Start: `bash .opencode/scripts/team-dashboard.sh start "$(pwd)"`
+- On finish — success or failure: `bash .opencode/scripts/team-dashboard.sh stop "$(pwd)"`
+
 Implement the existing openspec change: $1
 
 Mode: implementation-only (the change artifacts already exist).

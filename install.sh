@@ -29,6 +29,14 @@ for agent in orchestrator planner coder tester reviewer; do
   echo "  ✓ ${agent}.md"
 done
 
+# Install dashboard scripts (live run dashboard)
+DASH_DIR="${TARGET}/.opencode/scripts"
+mkdir -p "${DASH_DIR}"
+cp "${SCRIPT_DIR}/scripts/gen-team-dashboard.py" "${DASH_DIR}/"
+cp "${SCRIPT_DIR}/scripts/team-dashboard.sh" "${DASH_DIR}/"
+chmod +x "${DASH_DIR}/team-dashboard.sh"
+echo "  ✓ dashboard scripts (.opencode/scripts/)"
+
 # Install commands (/team, /team-change, ...)
 for cmd in "${SCRIPT_DIR}"/commands/*.md; do
   cp "$cmd" "${COMMANDS_DIR}/"
