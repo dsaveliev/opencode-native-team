@@ -1,0 +1,44 @@
+scripts/validate.py
+  s_d3b744d29667a2::t_b22a038bdeb546 4-8,11,20,22,28-29,42-46,50,71-84,89-91,93,96-120,124,129-130,132-139,143,145-186,188,197,199,202-203,207-210,220,225-226,228,234,243,246-247,254,259,264-265,267-271,273
+docs/review-v5.1.md
+  s_d3b744d29667a2::t_695c814c5b09e8 1-109
+scripts/check-model-routing.sh
+  s_d3b744d29667a2::t_72bd156e46b236 1-42,45-52
+  s_d3b744d29667a2::t_c81912027fa7ff 43-44
+examples/judge.sh
+  s_d3b744d29667a2::t_7adb9194bbadd9 65,69,76-80,84-86,92
+docs/review-v5.1.2.md
+  s_7fc35b7cff42cd::t_86fe16eaee0673 1-297
+SPEC.md
+  s_d3b744d29667a2::t_dadad9a857d6f9 69,123
+docs/reviews.md
+  s_d3b744d29667a2::t_b2058775d3f69d 4-8,46
+docs/v4-to-v5.md
+  s_d3b744d29667a2::t_0e450bc4e54fda 8,55-56
+vendor/MANIFEST.yaml
+  s_d3b744d29667a2::t_143401523b3666 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "88fa38e9ab8968635f0b61d895fc1bdbf820456a",
+  "prompts": {},
+  "sessions": {
+    "s_7fc35b7cff42cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d682a88d-7ff8-4747-b8fb-cf6d07af0649",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
