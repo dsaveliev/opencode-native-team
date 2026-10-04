@@ -1,0 +1,12 @@
+{
+  "permission": {
+    "edit": { "*": "allow" },
+    "bash": { "*": "allow" }
+  },
+  "agent": {
+    "coder": { "model": "zhipuai-coding-plan/glm-5.3" },
+    "reviewer": { "model": "zhipuai-coding-plan/glm-5.3" },
+    "planner": { "model": "zhipuai-coding-plan/glm-5.3-flash" },
+    "tester": { "model": "zhipuai-coding-plan/glm-5.3-flash" }
+  }
+}

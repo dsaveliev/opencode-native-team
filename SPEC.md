@@ -20,7 +20,9 @@ Five files. Zero dependencies. Zero vendor lock-in. Full control.
 - **models**: any model supported by opencode; recommended routing:
   - coder, reviewer, orchestrator → main model (e.g. glm-5.3)
   - planner, tester → fast model (e.g. glm-5.3-flash)
-- **language**: team contracts are language-agnostic
+- **language**: team contracts are language-agnostic; language-specific permissions
+  (test commands, race detection) live in the target project's `opencode.json`,
+  not in the agent contracts. An `opencode.json.example` with Go presets is provided.
 
 ## Commands
 
@@ -117,10 +119,11 @@ Body: concise, structured, no filler. Each contract <= 60 lines.
 ## Success Criteria
 
 1. `install.sh` copies 5 files — team ready in < 1 minute
-2. On the canonical TASK.md the v5 team achieves: judge 15/15, coverage > 90%,
-   main > 70%, <= 55 minutes, <= 450k input tokens, 0 operator interventions
+2. On the canonical TASK.md the v5 team achieves: judge 15/15 (exit 0), coverage > 90%,
+   main > 70%, <= 60 minutes, <= 450k input tokens, 0 operator interventions
 3. All 5 contracts readable by a human in 5 minutes
 4. Adding a role = editing one file
+5. `examples/judge.sh` returns exit 0 on success and writes SCORE to metrics.env
 
 ## Open Questions
 
