@@ -1,0 +1,28 @@
+scripts/sync-skills.sh
+  s_d3b744d29667a2::t_84ca310cf73685 98
+  s_d3b744d29667a2::t_372b3b1c95166d 1-97,99-107
+examples/team-skills.json
+  s_d3b744d29667a2::t_fbb3943bb5b4af 1-15
+agents/orchestrator.md
+  s_d3b744d29667a2::t_5b4693ecf17da5 47-50
+README.md
+  s_d3b744d29667a2::t_58c40704725c2e 173-185
+scripts/validate.py
+  s_d3b744d29667a2::t_439d3d1060cd64 274-283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "119292b2ffdfe6f124fe450188b0ca6efc6ec2b4",
+  "prompts": {},
+  "sessions": {
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
