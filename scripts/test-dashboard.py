@@ -70,11 +70,14 @@ try:
         '{"mode": "always", "refresh": 15, "open_browser": false, "coverage_ttl": 0}'
     )
 
-    # code file so the LOC card has something to count
+    # code files: main + second (forces the old wc "total" double-count bug)
+    # + a filename with a quote (E-1 shell-injection probe)
     os.makedirs(os.path.join(fx, "cmd"), exist_ok=True)
     open(os.path.join(fx, "cmd", "main.go"), "w").write(
         "package main\n\nfunc main() { println(1) }\n"
     )
+    open(os.path.join(fx, "two.go"), "w").write("package main\n\nvar X = 1\n")
+    open(os.path.join(fx, "it's.go"), "w").write("package main\n")
     subprocess.run(["git", "add", "-A"], cwd=fx, capture_output=True, check=True)
     subprocess.run(
         ["git", "commit", "-qm", "loc fixture"], cwd=fx, capture_output=True, check=True
@@ -108,8 +111,17 @@ try:
     check(
         "stage stepper", re.search(r'class="step cur">plan|class="step cur">code', page)
     )
-    # LOC counts tracked code (4 lines of Go), coverage renders a placeholder
-    check("LOC card counts code", ">3<" in page and "loc (tracked)" in page)
+    # E-2: exact LOC — main.go(3) + two.go(3) + it's.go(1) = 7; doubled=14
+    # and loose ">3<" (matches 113) must both fail this check
+    check(
+        "LOC card exact (7, not doubled)",
+        re.search(r"<div class=v>7</div><div class=l>loc \(tracked\)</div>", page)
+        is not None,
+    )
+    check(
+        "quote filename no injection",
+        not os.path.exists(os.path.join(fx, "INJECTED_PROOF")),
+    )
     check("coverage placeholder", "&mdash;</div><div class=l>test coverage %" in page)
     # svg has explicit width/height (Safari renders height:auto-only svg at 0)
     check(
@@ -128,8 +140,11 @@ try:
         and "class=line/>" not in page,
     )
     check("activity lanes present", page.count('class="lat"') >= 1)
-    check("hover popups via data-tip", 'data-tip="' in page and "<title>" not in
-          re.search(r"<svg.*?</svg>", page, re.S).group(0))
+    check(
+        "hover popups via data-tip",
+        'data-tip="' in page
+        and "<title>" not in re.search(r"<svg.*?</svg>", page, re.S).group(0),
+    )
     check("tasks+commits share a row", "class=row2" in page)
     # atomic write: no leftover tmp
     check(

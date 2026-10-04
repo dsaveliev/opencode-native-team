@@ -184,6 +184,12 @@ git + openspec tasks every few seconds, zero dependencies.
   `/team-change` commands start/stop the dashboard automatically.
 - Manual: `.opencode/scripts/team-dashboard.sh start|stop|once|status <dir>`;
   after stop the final HTML stays in `tmp/team-dashboard.html`.
+- Panels: cards, run-stage stepper, activity swimlanes (per-agent session
+  bars + commit markers on a stable wall-clock axis), agents table with
+  spawn counts, task tree, work log and commit list (click to expand,
+  hover the chart for popups). Optional test-coverage card is opt-in via
+  `coverage_ttl` (seconds; 0/off by default — the tick must not race the
+  tester agent).
 
 ## Stack Skills (per-project extensions)
 

@@ -286,6 +286,9 @@ def main():
         err("examples/team-dashboard.json: mode must be ask|always|never")
     if not isinstance(dash.get("refresh", 5), int) or dash.get("refresh", 5) < 2:
         err("examples/team-dashboard.json: refresh must be int >= 2")
+    if "coverage_ttl" not in dash:
+        err("examples/team-dashboard.json: coverage_ttl must be declared "
+            "(0 = off, default) — undocumented keys drift back (E-3)")
     r = subprocess.run([sys.executable, "scripts/test-dashboard.py"],
                        capture_output=True, text=True)
     if r.returncode != 0:

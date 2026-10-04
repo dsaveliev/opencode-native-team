@@ -58,6 +58,14 @@ opencode-native-team/
 
   install.sh                   — install into target project (or --global)
 
+  scripts/                     — repo tooling (installed: dashboard pair)
+    gen-team-dashboard.py      — one dashboard generation pass
+    team-dashboard.sh          — start/stop/once/status loop manager
+    test-dashboard.py          — behavioral fixture test (CI)
+    validate.py                — mechanical repo checks (CI)
+    check-model-routing.sh     — verify project model routing applies
+    sync-skills.sh             — stack skills install/verify (+skills.lock)
+
   vendor/                      — vendored dependencies (see MANIFEST.yaml)
     MANIFEST.yaml              — dependency pins (skills, models, CLI versions)
     skills/                    — copies of required skill files

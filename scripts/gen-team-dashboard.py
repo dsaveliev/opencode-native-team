@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sqlite3
+import shutil
 import subprocess
 import sys
 import time
@@ -171,8 +172,10 @@ def load_tasks(start_ms=None):
     ):
         name = os.path.basename(os.path.dirname(path))
         dm = re.match(r"(\d{4}-\d{2}-\d{2})-", name)
-        if start_date and dm and datetime.date.fromisoformat(dm.group(1)) < start_date:
-            continue  # archived before this run — another run's history
+        if start_date:
+            # undated or pre-run archives belong to other runs' history
+            if not dm or datetime.date.fromisoformat(dm.group(1)) < start_date:
+                continue
         changes.append(("archive: " + name, entries(path)))
 
     done = sum(1 for _, es in changes for it in es if it[0] == "t" and it[1])
@@ -307,20 +310,21 @@ CODE_EXT = re.compile(r"\.(go|py|ts|tsx|js|jsx|rs|java|rb|php|c|cc|cpp|h|hpp|sh)
 
 
 def project_loc():
-    """Lines of code over tracked files (code extensions only)."""
+    """Lines of code over tracked files (code extensions only).
+    Counted in Python: no shell, no quoting, no wc total-line double-count."""
     files = [
         f
         for f in sh("git ls-files").split("\n")
         if f and CODE_EXT.search(f) and not f.startswith("vendor/")
     ]
-    if not files:
-        return 0
-    out = sh("wc -l " + " ".join(f"'{f}'" for f in files[:500]))
     total = 0
-    for line in out.split("\n"):
-        m = re.match(r"\s*(\d+)", line)
-        if m:
-            total += int(m.group(1))
+    for f in files:
+        try:
+            with open(os.path.join(DIR, f), encoding="utf-8", errors="ignore") as fh:
+                total += len(fh.read().splitlines())
+        except OSError:
+            continue
+    return total
     return total
 
 
@@ -328,18 +332,23 @@ COV_CACHE = os.path.join(DIR, "tmp", "team-dashboard-coverage.json")
 
 
 def test_coverage():
-    """Mean per-package go test coverage, cached with a TTL (tests are too
-    heavy for every tick). 'n/a' when Go is absent or the TTL is 0."""
-    ttl = int(cfg_get("coverage_ttl", 60) or 0)
+    """Mean per-package go test coverage. OPT-IN: coverage_ttl (seconds,
+    default 0 = off — running tests from a dashboard tick is heavy and can
+    race the tester agent). Failures are cached too, so a broken run does
+    not retry every tick."""
+    ttl = int(cfg_get("coverage_ttl", 0) or 0)
     if ttl <= 0:
         return None
+    now_ms = time.time() * 1000
     try:
         c = json.load(open(COV_CACHE, encoding="utf-8"))
-        if time.time() * 1000 - c["ts"] < ttl * 1000:
-            return c["pct"]
+        if now_ms - c["ts"] < (c.get("ttl", ttl)) * 1000:
+            return c.get("pct")
     except Exception:
         pass
     if not os.path.exists(os.path.join(DIR, "go.mod")):
+        return None
+    if not shutil.which("go"):
         return None
     try:
         import subprocess as sp
@@ -353,11 +362,12 @@ def test_coverage():
         )
         pcts = [float(m) for m in re.findall(r"coverage:\s+(\d+(?:\.\d+)?)%", r.stdout)]
         pct = round(sum(pcts) / len(pcts), 1) if pcts else None
-        if pct is not None:
-            json.dump(
-                {"pct": pct, "ts": int(time.time() * 1000)},
-                open(COV_CACHE, "w", encoding="utf-8"),
-            )
+        # cache success with the configured ttl, failure with 5x ttl
+        cache_ttl = ttl if pct is not None else ttl * 5
+        json.dump(
+            {"pct": pct, "ts": int(now_ms), "ttl": cache_ttl},
+            open(COV_CACHE, "w", encoding="utf-8"),
+        )
         return pct
     except Exception:
         return None
@@ -432,27 +442,34 @@ NERR = sum(ERR_TOOLS.values())
 # stage stepper: last orchestrator text → keywords; fallback: last active agent
 STAGES = ["plan", "code", "test", "review", "done"]
 stage = None
+# primary signal: the most recently active SUBAGENT role (last 10 minutes) —
+# keyword scanning of one orchestrator text misfires on phrases like
+# "first coder, then reviewer"
+ROLE2STAGE = {
+    "planner": "plan",
+    "coder": "code",
+    "tester": "test",
+    "reviewer": "review",
+}
+recent_sub = [
+    (d["last"], a)
+    for a, d in agents.items()
+    if a in ROLE2STAGE and NOW - d["last"] < 600_000
+]
+if recent_sub:
+    stage = ROLE2STAGE[max(recent_sub)[1]]
 orch_texts = [x for _t, a, x in TEXTS if a == "orchestrator"]
 last_txt = orch_texts[0].lower() if orch_texts else ""
 for kw, st in [
     ("archive|final gates|closing", "done"),
-    ("reviewer|review", "review"),
-    ("tester|tests green", "test"),
-    ("coder|implement|delegating", "code"),
-    ("openspec|proposal|design|doubt|planning|decomposition", "plan"),
 ]:
-    if re.search(kw, last_txt):
+    if stage is None and re.search(kw, last_txt):
         stage = st
         break
 if stage is None:
     by_agent = {a: d["last"] for a, d in agents.items()}
     last_agent = max(by_agent, key=by_agent.get) if by_agent else None
-    stage = {
-        "planner": "plan",
-        "coder": "code",
-        "tester": "test",
-        "reviewer": "review",
-    }.get(last_agent, "plan")
+    stage = ROLE2STAGE.get(last_agent, "plan")
 stage_idx = STAGES.index(stage)
 steps = []
 for i, n in enumerate(STAGES):
@@ -471,7 +488,10 @@ if DONE:
     rate = (ELAPSED / 60000) / DONE
     eta = f"~{round(rate * (TOTAL - DONE))} min left"
 
-err_str = ", ".join(f"{t}&times;{n}" for t, n in sorted(ERR_TOOLS.items())) or "none"
+err_str = (
+    ", ".join(f"{html.escape(str(t))}&times;{n}" for t, n in sorted(ERR_TOOLS.items()))
+    or "none"
+)
 
 cards = f"""
 <div class=card><div class=v>{DONE}/{TOTAL}</div><div class=l>tasks done</div></div>
@@ -563,7 +583,7 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  .ev{{padding:3px 0;border-bottom:1px solid var(--grid);display:flex;gap:8px;align-items:baseline}}
  .ev .t{{color:var(--muted);white-space:nowrap;min-width:56px;display:inline-block;text-align:right}} .ev .ag{{font-weight:600;min-width:150px;white-space:nowrap}}
  .badge{{font-family:ui-monospace,monospace;font-size:9px;font-weight:700;border:1px solid;border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:1px}}
- .tx{{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52vw;cursor:pointer}}
+ .tx{{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}}
  .tx.exp{{white-space:normal;max-width:none}}
  .pt:hover{{transform:scale(1.6);transform-box:fill-box;transform-origin:center}}
  .row2{{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}}
@@ -592,7 +612,7 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class=bar><div></div><span class=barlab>{pct}%</span></div>
 <div class=stepper><span class=muted style="margin-right:8px">run stage:</span>{stepper}</div>
 <div class=panel><h2>Activity — sessions &amp; commits (wall clock)</h2>{activity_chart(SESSIONS, COMMITS_T, COMMITS_M, START)}</div>
-<div class=panel><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawns</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
+<div class=panel><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawned</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
 <div class=row2>
  <div class=panel><h2>Tasks ({DONE}/{TOTAL})</h2>{task_html or "<div class=muted>no openspec tasks found</div>"}</div>
  <div class=panel><h2>Commits</h2><div class=feed>{commits_list}</div></div>
@@ -616,18 +636,30 @@ document.addEventListener('mousemove', e => {{
 document.addEventListener('mouseout', e => {{
   if (e.target.closest && e.target.closest('[data-tip]')) tip.style.display = 'none';
 }});
-if (sessionStorage.getItem('dash-pause') !== '1') {{
-  setTimeout(() => location.reload(), R);
+// storage guarded: a single SecurityError (cookies blocked etc.) must not
+// silently kill auto-refresh — third "quietly looks alive" bug of this class
+const sGet = k => {{ try {{ return sessionStorage.getItem(k); }} catch (e) {{ return null; }} }};
+const sSet = (k, v) => {{ try {{ sessionStorage.setItem(k, v); }} catch (e) {{}} }};
+const sDel = k => {{ try {{ sessionStorage.removeItem(k); }} catch (e) {{}} }};
+let tmr = null;
+if (sGet('dash-pause') !== '1') {{
+  tmr = setTimeout(() => location.reload(), R);
 }}
-addEventListener('scroll', () => sessionStorage.setItem('dash-y', scrollY), {{passive: true}});
-scrollTo(0, +sessionStorage.getItem('dash-y') || 0);
+addEventListener('scroll', () => sSet('dash-y', String(scrollY)), {{passive: true}});
+// per-feed scroll: each .feed remembers its own position by index
+document.querySelectorAll('.feed').forEach((f, i) => {{
+  f.addEventListener('scroll', () => sSet('dash-f' + i, String(f.scrollTop)), {{passive: true}});
+  f.scrollTop = +sGet('dash-f' + i) || 0;
+}});
+scrollTo(0, +sGet('dash-y') || 0);
 function togglePause() {{
-  const p = sessionStorage.getItem('dash-pause') === '1';
-  if (p) {{ sessionStorage.removeItem('dash-pause'); location.reload(); }}
-  else {{ sessionStorage.setItem('dash-pause', '1');
-         const b = document.getElementById('pause'); b.textContent = 'resume'; }}
+  const p = sGet('dash-pause') === '1';
+  if (p) {{ sDel('dash-pause'); location.reload(); }}
+  else {{ sSet('dash-pause', '1');
+         if (tmr) {{ clearTimeout(tmr); tmr = null; }}  // cancel the pending reload
+         document.getElementById('pause').textContent = 'resume'; }}
 }}
-if (sessionStorage.getItem('dash-pause') === '1') {{
+if (sGet('dash-pause') === '1') {{
   document.getElementById('pause').textContent = 'resume';
 }}
 </script>

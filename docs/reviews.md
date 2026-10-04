@@ -1,6 +1,6 @@
 # Review Rounds
 
-Seven external review rounds shaped v5 → v5.1.5. Original reviews were
+Eight external review rounds shaped v5 → v5.1.6. Original reviews were
 received in Russian. Round 1 lives in git history only
 (`git show 266708d:docs/audit-v5.md`). Rounds 3+ are committed as
 `docs/review-v5.1.*.md`. The round-2 original (`review-v5.1.md`, of commit
@@ -61,6 +61,16 @@ with resolutions:
 | V-4 validator silently skipped YAML checks without PyYAML | hard requirement, exit 1 |
 | D-3 round 2 absent from history | attempted reconstruction (turned out mislabeled — fixed in round 5) |
 
+## Round 5 — review of v5.1.3
+
+| Finding | Resolution |
+|---|---|
+| T-1 artifact promised in reviews.md but absent | artifact committed: `docs/artifacts/native-v5-models-routing.txt`; validator step [10] now checks doc paths against disk |
+| T-2 "reconstructed round 2" was actually round 3 text | mislabeled file deleted; traceability statement made honest; round-2 original still absent (summary only) |
+| T-3 ok printed after FAIL (substring guards) | per-step error counting; ok only when the step added zero errors |
+| M-8 second half: permission merge unverified | verified empirically — and it was broken: reviewer `go test` denied in the live run (frontmatter catch-all defeats JSON allow). Fix: complete-map rule (probed twice), fixed `examples/opencode.json.example`, README note |
+| default LIMIT untested | judge A4: `Incr(n=5) -> count=5`, then `Incr(n=1) -> RESOURCE_EXHAUSTED` at defaults (two calls, no timing pressure) |
+| dead code in validate.py | strict loader via subclass, no global mutation |
 ## Round 6 — review of v5.1.4 (commits 761aaa6..fe27924)
 
 | Finding | Resolution |
@@ -86,13 +96,24 @@ with resolutions:
 | UX (pause/scroll, stepper, badges, now marker, title, %, dark, responsive) | all implemented |
 | G-1 round 6 section missing while its fixes shipped | sections added; validator now enforces one section per review file |
 
-## Round 5 — review of v5.1.3
+## Round 8 — review of v5.1.6 (`docs/review-v5.1.6.md`)
+
+Status: **open** — findings recorded, fixes not yet applied.
 
 | Finding | Resolution |
 |---|---|
-| T-1 artifact promised in reviews.md but absent | artifact committed: `docs/artifacts/native-v5-models-routing.txt`; validator step [10] now checks doc paths against disk |
-| T-2 "reconstructed round 2" was actually round 3 text | mislabeled file deleted; traceability statement made honest; round-2 original still absent (summary only) |
-| T-3 ok printed after FAIL (substring guards) | per-step error counting; ok only when the step added zero errors |
-| M-8 second half: permission merge unverified | verified empirically — and it was broken: reviewer `go test` denied in the live run (frontmatter catch-all defeats JSON allow). Fix: complete-map rule (probed twice), fixed `examples/opencode.json.example`, README note |
-| default LIMIT untested | judge A4: `Incr(n=5) -> count=5`, then `Incr(n=1) -> RESOURCE_EXHAUSTED` at defaults (two calls, no timing pressure) |
-| dead code in validate.py | strict loader via subclass, no global mutation |
+| E-1 tracked filename executes a command every tick (`wc -l '<f>'` under `shell=True`) — D-5 class reintroduced in `project_loc()` | open |
+| E-2 LOC card doubled (`wc -l` `total` line summed as a file) | open |
+| E-3 `coverage_ttl` defaults to 60: dashboard runs `go test ./...` on any Go project, blocks the tick 45s, never caches on timeout, undocumented | open |
+| E-4 fixture blind by construction (one code file, no quoted names, coverage disabled) — 21 green checks over 3 live defects | open |
+| E-5 pause does not `clearTimeout` the scheduled reload | open |
+| E-6 `sessionStorage` without try/catch gates auto-refresh entirely | open |
+| E-7 feed scroll not restored (window only) | open |
+| E-8 `.tx` without `min-width:0` overflows the two-column row | open |
+| E-9 `err_str` interpolates tool names unescaped | open |
+| E-10 README still describes the v1 dashboard; `coverage_ttl` undocumented everywhere | open |
+| E-11 SPEC.md omits `scripts/` (1435 lines) and half the repo; round-3 `tools/` removal precedent unresolved | open |
+| E-12 stage detected from keywords in one orchestrator text ("reviewer" in a plan text → review at minute 1) | open |
+| E-13 `spawns` column counts "times spawned", reads as "spawned by" | open |
+| E-14 double `git status`, `files[:500]` truncation, dead `.pt` CSS, undated archive dirs always counted, two time scales | open |
+| E-15 G-1 check bound to the `review-v5.1.K.md` filename pattern and checks presence only — journal order had silently broken (Round 5 after Round 7) | section order fixed here; name-pattern coupling open |

@@ -1,6 +1,7 @@
 {
-  "$comment": "Copy to <project>/.opencode/team-dashboard.json (optional). mode: ask = the team asks once per run when a user is present (headless runs skip silently); always = start every run; never = off. refresh: seconds between regenerations; open_browser: open the dashboard in the default browser on start.",
+  "$comment": "Copy to <project>/.opencode/team-dashboard.json (optional). mode: ask = the team asks once per run when a user is present (headless runs skip silently); always = start every run; never = off. refresh: seconds between regenerations; open_browser: open the dashboard in the default browser on start; coverage_ttl: seconds to cache a go-test coverage run (0 = off, default — a dashboard tick must not run tests / race the tester agent; failures cache at 5x ttl).",
   "mode": "ask",
   "refresh": 5,
-  "open_browser": true
+  "open_browser": true,
+  "coverage_ttl": 0
 }
