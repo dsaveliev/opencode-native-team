@@ -207,21 +207,31 @@ def main():
     except json.JSONDecodeError as e:
         err(f"opencode.json.example: invalid JSON: {e}")
         cfg = {}
-    if cfg.get("permission", {}).get("bash", {}).get("*") == "allow":
-        err("opencode.json.example: global bash wildcard allow (R-5 regression)")
+    # C-2 (probed, supersedes R-5): headless/autonomous is the primary mode;
+    # top-level allows are REQUIRED for it and do NOT weaken subagent
+    # contracts (frontmatter denies take precedence over top-level allows)
+    top = cfg.get("permission", {})
+    if top.get("bash", {}).get("*") != "allow":
+        err("opencode.json.example: top-level bash allow missing — headless "
+            "runs auto-reject every command (probed)")
+    if top.get("edit", {}).get("*") != "allow":
+        err("opencode.json.example: top-level edit allow missing — headless "
+            "runs cannot write files")
     rev = cfg.get("agent", {}).get("reviewer", {}).get("permission", {}).get("bash", {})
     if not any("test" in k for k in rev):
-        err(
-            "opencode.json.example: reviewer has no test command allow (R-4 regression)"
-        )
-    if "*" not in rev:
-        err(
-            "opencode.json.example: reviewer bash map must be COMPLETE (catch-all '*' "
-            "required — a partial JSON map is defeated by frontmatter denies; probed)"
-        )
+        err("opencode.json.example: reviewer has no test command allow (R-4 regression)")
+    # C-1: the JSON override must be a SUPERSET of the reviewer frontmatter
+    # bash map — a trimmed map silently strips git-read allows and separator
+    # denies (presence of "*" alone does not express "complete")
+    fm_rev_bash = fm.get("reviewer", {}).get("permission", {}).get("bash", {})
+    if isinstance(fm_rev_bash, dict):
+        for pat, action in fm_rev_bash.items():
+            if rev.get(pat) != action:
+                err("opencode.json.example: reviewer bash map must be a "
+                    f"superset of the contract — missing {pat!r}: {action!r}")
     if "model" not in cfg.get("agent", {}).get("planner", {}):
         err("opencode.json.example: planner model routing missing")
-    s.ok("example config: complete reviewer map, no global allow, model routing")
+    s.ok("example config: headless allows, reviewer superset map, model routing")
 
     s = Step("[6] commands/team.md")
     team = open("commands/team.md", encoding="utf-8").read()
@@ -272,7 +282,8 @@ def main():
     # (\u041a\u043a = Cyrillic K/k — kept escaped to keep this file ASCII);
     # SHAs merely quoted inside the body may repeat across reviews
     subj_re = re.compile(
-        "[\u041a\u043a]\u043e\u043c\u043c\u0438\u0442(?:\u044b)?\\s+`?([0-9a-f]{7,40})"
+        "(?:[\u041a\u043a]\u043e\u043c\u043c\u0438\u0442(?:\u044b)?|Commit)\\s+`?([0-9a-f]{7,40})",
+        re.IGNORECASE,
     )
     seen = {}
     for rf in sorted(fnmatch.filter(os.listdir("docs"), "review-*.md")):

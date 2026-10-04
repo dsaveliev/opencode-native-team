@@ -1,6 +1,6 @@
 # Review Rounds
 
-Three external review rounds shaped v5 → v5.1 → v5.1.1. Original reviews were
+Six external review rounds shaped v5 → v5.1.4. Original reviews were
 received in Russian. Round 1 lives in git history only
 (`git show 266708d:docs/audit-v5.md`). Rounds 3+ are committed as
 `docs/review-v5.1.*.md`. The round-2 original (`review-v5.1.md`, of commit
@@ -47,6 +47,19 @@ with resolutions:
 | M-8 `.opencode/opencode.json` read-path unverified | `scripts/check-model-routing.sh` + committed pilot artifact `docs/artifacts/native-v5-models-routing.txt` |
 | tools/dashboard-gen.py violated SPEC (external writes) | removed from repo |
 | C1 no CI | `.github/workflows/ci.yml` runs `scripts/validate.py` |
+
+## Round 4 — review of v5.1.2
+
+| Finding | Resolution |
+|---|---|
+| V-1 validator checked CJK but not Cyrillic (the actual failure class) | step [8]: Cyrillic U+0400-04FF added; whitelist narrowed |
+| V-2 deny FORMS checked, PRESENCE not | presence invariants (task-deny, edit/webfetch deny, git denies, allow-list, mode, temperature) — negative-tested |
+| V-3 judge count 17 vs "15/15" in four doc places | reconciled to 18 (now 19 after A4) + comparability notes in historical tables |
+| J-1 documented 2s window untested behaviorally | judge A3: sleep 3 → count must be 1 |
+| J-2 Phase A ignored PORT | passed |
+| D-1 upstream pins lost from MANIFEST | pins restored (agent-skills@1401c8b), validator requires 40-hex SHA |
+| V-4 validator silently skipped YAML checks without PyYAML | hard requirement, exit 1 |
+| D-3 round 2 absent from history | attempted reconstruction (turned out mislabeled — fixed in round 5) |
 
 ## Round 5 — review of v5.1.3
 

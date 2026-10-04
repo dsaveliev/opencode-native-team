@@ -134,11 +134,12 @@ An `opencode.json.example` with Go presets is installed by `install.sh`.
 > defeated (this exact bug shipped once: the reviewer's `go test` allow was
 > silently overridden until a live run caught it).
 >
-> **Autonomous (headless) runs** additionally need a top-level
-> `"permission": {"bash": {"*": "allow"}}` in the project config, or every
-> command falls back to your global default (`ask` = auto-reject headless).
-> This does not weaken subagent contracts — agent frontmatter denies take
-> precedence over top-level allows (probed).
+> **Autonomous (headless) runs** work out of the box: the example config
+> ships top-level `bash`/`edit` allows. They do not weaken subagent
+> contracts — agent frontmatter denies take precedence over top-level allows
+> (probed). Remove them if you prefer interactive `ask` gating; trim the
+> reviewer map only down to the contract's own rules — `validate.py`
+> enforces the superset.
 
 ## Vendored Skills
 

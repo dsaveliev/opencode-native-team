@@ -1,4 +1,9 @@
 {
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "edit": { "*": "allow" },
+    "bash": { "*": "allow" }
+  },
   "agent": {
     "coder": { "model": "zhipuai-coding-plan/glm-5.3" },
     "reviewer": {
