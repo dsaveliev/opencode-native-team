@@ -1,6 +1,6 @@
 # Review Rounds
 
-Six external review rounds shaped v5 → v5.1.4. Original reviews were
+Seven external review rounds shaped v5 → v5.1.5. Original reviews were
 received in Russian. Round 1 lives in git history only
 (`git show 266708d:docs/audit-v5.md`). Rounds 3+ are committed as
 `docs/review-v5.1.*.md`. The round-2 original (`review-v5.1.md`, of commit
@@ -60,6 +60,31 @@ with resolutions:
 | D-1 upstream pins lost from MANIFEST | pins restored (agent-skills@1401c8b), validator requires 40-hex SHA |
 | V-4 validator silently skipped YAML checks without PyYAML | hard requirement, exit 1 |
 | D-3 round 2 absent from history | attempted reconstruction (turned out mislabeled — fixed in round 5) |
+
+## Round 6 — review of v5.1.4 (commits 761aaa6..fe27924)
+
+| Finding | Resolution |
+|---|---|
+| C-1 complete-map guarded by a single key | superset check: every frontmatter rule must be present in the JSON override |
+| C-2 R-5 check guarded a refuted hypothesis | inverted: top-level allows required (headless primary mode), shipped in example |
+| C-3 reviewer map duplicated, drift unguarded | closed by the superset check |
+| C-5 Russian-only subject keyword in the regex | Commit (EN) + Cyrillic equivalent, ignore-case |
+
+## Round 7 — review of v5.1.5 (`docs/review-v5.1.5.md`)
+
+| Finding | Resolution |
+|---|---|
+| D-1 start no longer resets the window (678fbf3 regression) | start = new run by default; `--resume` for mid-run restarts |
+| D-2 archived changes leaked into the run window | archive date parsed from dir name; only same-day-or-later count |
+| D-3 open_browser True vs "true" | cfgget lowercases values |
+| D-4 Tasks panel dead branch | panel rebuilt: waves as sections, todo emphasized, done dimmed |
+| D-5 project path interpolated into bash -c / python -c | positional args; nothing interpolated |
+| D-6 refresh config ignored by the page | generator reads config; JS timer instead of meta refresh |
+| D-7 non-atomic HTML write | tmp + os.replace |
+| D-8 no behavioral tests in repo | `scripts/test-dashboard.py` fixture (14 checks), wired into validate.py |
+| moderate (pid reuse, tmp gitignore, parts LIMIT, fmt_k) | pid+cmdline check; install.sh appends tmp/ to .gitignore; LIMIT 300; decimal k |
+| UX (pause/scroll, stepper, badges, now marker, title, %, dark, responsive) | all implemented |
+| G-1 round 6 section missing while its fixes shipped | sections added; validator now enforces one section per review file |
 
 ## Round 5 — review of v5.1.3
 

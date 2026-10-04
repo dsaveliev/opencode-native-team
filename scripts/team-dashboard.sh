@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# team-dashboard.sh start|stop|once|status <project-dir>
-# start : record run start, launch background refresh loop, open browser
+# team-dashboard.sh start|stop|once|status <project-dir> [--resume]
+# start : begin a NEW run window (resets state) and launch the refresh loop
+#         --resume : keep the existing state (mid-run dashboard restart)
 # stop  : kill the loop (state + final HTML are kept for review)
 # once  : single generation pass
 # status: report loop state
 # Config: <project>/.opencode/team-dashboard.json
 #   {"mode": "ask"|"always"|"never", "refresh": 5, "open_browser": true}
-# (mode is decided by the team commands; this script only starts/stops)
 set -u
 
-CMD="${1:?usage: team-dashboard.sh start|stop|once|status <project-dir>}"
-DIR="${2:?usage: team-dashboard.sh start|stop|once|status <project-dir>}"
+CMD="${1:?usage: team-dashboard.sh start|stop|once|status <project-dir> [--resume]}"
+DIR="${2:?usage: team-dashboard.sh start|stop|once|status <project-dir> [--resume]}"
+RESUME="${3:-}"
 DIR="$(cd "$DIR" 2>/dev/null && pwd)" || { echo "no such dir: $2"; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,17 +27,24 @@ cfgget() {
 import json, os, sys
 cfg, key, default = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
-    print(json.load(open(cfg)).get(key, default))
+    print(str(json.load(open(cfg)).get(key, default)).lower())
 except Exception:
-    print(default)
+    print(str(default).lower())
 PYEOF
 }
 
 REFRESH="$(cfgget refresh 5)"
+REFRESH="${REFRESH%%.*}"
+[ "$REFRESH" -ge 2 ] 2>/dev/null || REFRESH=5
 OPEN_URL="$(cfgget open_browser true)"
 
 running() {
-  [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null
+  # pid alive AND it is our loop (never kill a recycled pid)
+  [ -f "$PIDFILE" ] || return 1
+  local pid
+  pid="$(cat "$PIDFILE")"
+  kill -0 "$pid" 2>/dev/null || return 1
+  ps -p "$pid" -o command= 2>/dev/null | grep -q "gen-team-dashboard" || return 1
 }
 
 open_browser() {
@@ -54,11 +62,16 @@ case "$CMD" in
       echo "dashboard already running (pid $(cat "$PIDFILE"))"
       exit 0
     fi
-    if [ ! -f "$STATE" ]; then
-      python3 -c "import json, time; json.dump({'start_ms': int(time.time()*1000)}, open('$STATE', 'w'))"
+    if [ "$RESUME" != "--resume" ] || [ ! -f "$STATE" ]; then
+      python3 - "$STATE" << 'PYEOF'
+import json, sys, time
+json.dump({"start_ms": int(time.time() * 1000)}, open(sys.argv[1], "w"))
+PYEOF
     fi
-    nohup bash -c "while :; do python3 '$GEN' '$DIR' >/dev/null 2>&1 || true; sleep $REFRESH; done" \
-      >/dev/null 2>&1 &
+    # loop args passed positionally: no project path is interpolated into
+    # the script body (apostrophes / ';' in paths are safe)
+    nohup bash -c 'while :; do python3 "$1" "$2" >/dev/null 2>&1 || true; sleep "$3"; done' \
+      dash-loop "$GEN" "$DIR" "$REFRESH" >/dev/null 2>&1 &
     echo $! > "$PIDFILE"
     python3 "$GEN" "$DIR" >/dev/null 2>&1 || true
     open_browser

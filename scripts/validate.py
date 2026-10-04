@@ -286,6 +286,10 @@ def main():
         err("examples/team-dashboard.json: mode must be ask|always|never")
     if not isinstance(dash.get("refresh", 5), int) or dash.get("refresh", 5) < 2:
         err("examples/team-dashboard.json: refresh must be int >= 2")
+    r = subprocess.run([sys.executable, "scripts/test-dashboard.py"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        err("dashboard behavioral test failed:\n" + r.stdout[-800:])
     for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh",
                "scripts/sync-skills.sh", "scripts/team-dashboard.sh"):
         r = subprocess.run(["bash", "-n", sh], capture_output=True, text=True)
@@ -350,7 +354,15 @@ def main():
             )
         else:
             seen[subj] = rf
-    s.ok("doc paths on disk, review subject commits resolve and are unique")
+    # G-1: every review file must have its section in docs/reviews.md
+    # (review-v5.1.K.md documents round K+2)
+    journal = open("docs/reviews.md", encoding="utf-8").read()
+    have_rounds = {int(m) for m in re.findall(r"## Round (\d+)", journal)}
+    for rf in sorted(fnmatch.filter(os.listdir("docs"), "review-*.md")):
+        m = re.match(r"review-v5\.1\.(\d+)\.md", rf)
+        if m and int(m.group(1)) + 2 not in have_rounds:
+            err(f"docs/{rf}: no 'Round {int(m.group(1)) + 2}' section in docs/reviews.md")
+    s.ok("doc paths on disk, review subject commits resolve and are unique, journal complete")
 
     print()
     if errors:

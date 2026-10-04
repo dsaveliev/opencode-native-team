@@ -99,6 +99,15 @@ PYEOF
   echo "  ✓ vendored skills installed"
 fi
 
+# Keep dashboard artifacts (tmp/) out of git in the target project
+if [ $GLOBAL = 0 ]; then
+  if [ -f "${TARGET}/.gitignore" ]; then
+    grep -qx 'tmp/' "${TARGET}/.gitignore" || printf 'tmp/\n' >> "${TARGET}/.gitignore"
+  else
+    printf 'tmp/\n' > "${TARGET}/.gitignore"
+  fi
+fi
+
 # Install example opencode.json if none exists (project mode only:
 # model routing and test commands are project-specific)
 if [ $GLOBAL = 0 ] && [ ! -f "${TARGET}/.opencode/opencode.json" ] && [ -f "${SCRIPT_DIR}/examples/opencode.json.example" ]; then
