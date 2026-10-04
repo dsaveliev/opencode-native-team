@@ -1,0 +1,14 @@
+# Model routing check — pilot run native-v5
+# date: 2026-10-04 (run later restarted with the fixed config)
+# command: scripts/check-model-routing.sh <run-dir>
+agent          session models
+  coder          glm-5.3
+  orchestrator   glm-5.3
+  reviewer       glm-5.3
+  tester         glm-5.3-flash
+
+# Additionally observed in the pilot run (permission-merge defect, fixed in
+# the same commit): 8 reviewer bash parts errored with 'rule prevents
+# this tool call' — go test allow from opencode.json was defeated by the
+# frontmatter catch-all deny. Fix: the JSON bash section must be a COMPLETE
+# map (including its own catch-all); verified with perm-probe (2 runs).

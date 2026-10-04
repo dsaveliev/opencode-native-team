@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """validate.py — mechanical checks for the opencode-native-team repo.
 
-Catches the error classes found in review rounds 1-4:
+Error classes caught (from review rounds 1-5):
 duplicate YAML keys, permission shape drift AND missing permissions,
 contract line-limit violations, MANIFEST hash mismatches and lost upstream
-pins, example-config regressions, shell syntax errors, Cyrillic/CJK
-artifacts outside the allowed Russian files.
+pins, example-config regressions (including the complete-map rule),
+shell syntax errors, Cyrillic/CJK artifacts outside allowed Russian files,
+documentation reality: paths named in README/reviews must exist on disk,
+review files must reference real and mutually unique commits.
 """
 
 import fnmatch
@@ -16,6 +18,12 @@ import re
 import subprocess
 import sys
 
+try:
+    import yaml
+except ImportError:
+    print("FAIL PyYAML is required (pip install pyyaml) — cannot validate")
+    sys.exit(1)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENTS = ["orchestrator", "planner", "tester", "reviewer", "coder"]
 LIMITS = {"orchestrator": 90}  # subagents default to 40
@@ -25,8 +33,14 @@ CJK = re.compile(
     r"\uac00-\ud7af\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef"
     r"\U00020000-\U0003ffff]"
 )
-# Files that are intentionally Russian ( originals / baseline task)
 RU_ALLOWED = ["examples/TASK.ru.md", "docs/review-*.md", "docs/audit-*.md"]
+# paths that docs may name; anything matching must exist on disk.
+# Only repo-tree dirs; bare filenames and .opencode/* are target-project files.
+DOC_PATH = re.compile(
+    r"`((?:docs|agents|examples|scripts|commands|vendor|artifacts|results|"
+    r"\.github|openspec)/[A-Za-z0-9_./-]+|install\.sh)`"
+)
+SHA = re.compile(r"\b[0-9a-f]{7,40}\b")
 errors = []
 
 
@@ -35,104 +49,78 @@ def err(msg):
     print(f"  FAIL {msg}")
 
 
-def ok(msg):
-    print(f"  ok   {msg}")
+class Step:
+    """ok() prints only if the step added zero errors since its start."""
+
+    def __init__(self, title):
+        print(title)
+        self._before = len(errors)
+
+    def ok(self, msg):
+        if len(errors) == self._before:
+            print(f"  ok   {msg}")
+
+
+class StrictLoader(yaml.SafeLoader):
+    pass
+
+
+def _no_dupes(loader, node, deep=False):
+    mapping = {}
+    for k_node, v_node in node.value:
+        key = loader.construct_object(k_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"duplicate key {key!r}", k_node.start_mark
+            )
+        mapping[key] = loader.construct_object(v_node, deep=deep)
+    return mapping
+
+
+StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_dupes)
+
+
+def parse_frontmatter(text, where):
+    parts = text.split("\n---\n", 1)
+    if not text.startswith("---") or len(parts) != 2:
+        err(f"{where}: frontmatter delimiters broken")
+        return None
+    try:
+        return yaml.load(parts[0][4:], Loader=StrictLoader)
+    except yaml.YAMLError as e:
+        err(f"{where}: YAML parse error: {e}")
+        return None
 
 
 def ru_allowed(path):
     return any(fnmatch.fnmatch(path, pat) for pat in RU_ALLOWED)
 
 
-def load_yaml_strict():
-    try:
-        import yaml
-    except ImportError:
-        err("PyYAML is required (pip install pyyaml) — YAML checks cannot run")
-        return None
-    try:
-
-        class StrictLoader(yaml.SafeLoader):
-            pass
-
-        def no_dupes(loader, node, deep=False):
-            mapping = {}
-            for k_node, v_node in node.value:
-                key = loader.construct_object(k_node, deep=deep)
-                if key in mapping:
-                    raise yaml.constructor.ConstructorError(
-                        None, None, f"duplicate key {key!r}", k_node.start_mark
-                    )
-                mapping[key] = loader.construct_object(v_node, deep=deep)
-            return mapping
-
-        StrictLoader.add_constructor(
-            yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_dupes
-        )
-        return yaml
-    except Exception as e:  # pragma: no cover
-        err(f"PyYAML loader setup failed: {e}")
-        return None
-
-
-def parse_frontmatter(text, where, yaml_mod):
-    parts = text.split("\n---\n", 1)
-    if not text.startswith("---") or len(parts) != 2:
-        err(f"{where}: frontmatter delimiters broken")
-        return None
-    try:
-        return yaml_mod.load(parts[0][4:], Loader=StrictLoader_global)
-    except yaml_mod.YAMLError as e:
-        err(f"{where}: YAML parse error: {e}")
-        return None
-
-
-StrictLoader_global = None
+def git_shas():
+    out = subprocess.run(
+        ["git", "log", "--format=%h"], cwd=ROOT, capture_output=True, text=True
+    ).stdout.split()
+    return set(out)
 
 
 def main():
-    global StrictLoader_global
     os.chdir(ROOT)
 
-    print("[1] PyYAML availability (hard requirement)")
-    yaml_mod = load_yaml_strict()
-    if yaml_mod is None:
-        print(f"\nVALIDATION FAILED: {len(errors)} error(s)")
-        return 1
-    StrictLoader_global = yaml_mod.SafeLoader
-
-    # re-bind strict constructor on the global loader
-    def _no_dupes(loader, node, deep=False):
-        mapping = {}
-        for k_node, v_node in node.value:
-            key = loader.construct_object(k_node, deep=deep)
-            if key in mapping:
-                raise yaml_mod.constructor.ConstructorError(
-                    None, None, f"duplicate key {key!r}", k_node.start_mark
-                )
-            mapping[key] = loader.construct_object(v_node, deep=deep)
-        return mapping
-
-    StrictLoader_global.add_constructor(
-        yaml_mod.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_dupes
-    )
-    ok("PyYAML present, strict loader ready")
-
-    print("[2] agent frontmatter: strict YAML, no duplicate keys")
+    s = Step("[1] agent frontmatter: strict YAML, no duplicate keys")
     fm = {}
     for a in AGENTS:
-        text = open(f"agents/{a}.md", encoding="utf-8").read()
-        data = parse_frontmatter(text, f"agents/{a}.md", yaml_mod)
+        data = parse_frontmatter(
+            open(f"agents/{a}.md", encoding="utf-8").read(), f"agents/{a}.md"
+        )
         if data is not None:
             fm[a] = data
     if len(fm) == len(AGENTS):
-        ok("all 5 frontmatters parse, zero duplicates")
-    else:
-        return finish()
+        s.ok("all 5 frontmatters parse, zero duplicates")
 
-    print("[3] permission invariants: shapes AND presence")
+    s = Step("[2] permission invariants: shapes AND presence")
     for a in ("planner", "coder", "tester", "reviewer"):
         where = f"agents/{a}.md"
-        perm = fm[a].get("permission", {})
+        perm = fm.get(a, {}).get("permission", {})
         if perm.get("task") != {"*": "deny"}:
             err(f"{where}: permission.task must be {{'*': 'deny'}}")
         if perm.get("external_directory") != "deny":
@@ -142,24 +130,22 @@ def main():
                 err(
                     f"{where}: permission.{tool} must be scalar, got {type(perm[tool]).__name__}"
                 )
-        if fm[a].get("mode") != "subagent":
+        if fm.get(a, {}).get("mode") != "subagent":
             err(f"{where}: mode must be 'subagent'")
     for a in ("planner", "reviewer"):
-        where = f"agents/{a}.md"
-        perm = fm[a].get("permission", {})
+        perm = fm.get(a, {}).get("permission", {})
         if perm.get("edit") != "deny":
-            err(f"{where}: read-only role must have edit: deny")
+            err(f"agents/{a}.md: read-only role must have edit: deny")
         if perm.get("webfetch") != "deny":
-            err(f"{where}: read-only role must have webfetch: deny")
+            err(f"agents/{a}.md: read-only role must have webfetch: deny")
     for a in ("coder", "tester"):
-        b = fm[a].get("permission", {}).get("bash", {})
+        b = fm.get(a, {}).get("permission", {}).get("bash", {})
         for pat in ("git commit*", "git push*", "git reset*", "git checkout -- *"):
             if b.get(pat) != "deny":
                 err(f"agents/{a}.md: bash deny missing for '{pat}'")
-    o = fm["orchestrator"].get("permission", {})
+    o = fm.get("orchestrator", {}).get("permission", {})
     task_perm = dict(o.get("task", {}))
-    star = task_perm.pop("*", None)
-    if star != "deny":
+    if task_perm.pop("*", None) != "deny":
         err("agents/orchestrator.md: permission.task['*'] must be 'deny'")
     if set(task_perm) != {"planner", "coder", "tester", "reviewer"}:
         err(
@@ -171,35 +157,26 @@ def main():
         err(
             "agents/orchestrator.md: permission.external_directory must be scalar 'deny'"
         )
-    if fm["orchestrator"].get("mode") != "primary":
+    if fm.get("orchestrator", {}).get("mode") != "primary":
         err("agents/orchestrator.md: mode must be 'primary'")
-    if str(fm["reviewer"].get("temperature")) != "0.1":
+    if str(fm.get("reviewer", {}).get("temperature")) != "0.1":
         err("agents/reviewer.md: temperature must be 0.1")
-    if not errors or not any(
-        "[3]" in e
-        or "permission" in e
-        or "mode" in e
-        or "bash deny" in e
-        or "task" in e
-        for e in errors
-    ):
-        ok("shapes and presence verified for all 5 contracts")
+    s.ok("shapes and presence verified for all 5 contracts")
 
-    print("[4] contract line limits (SPEC.md)")
+    s = Step("[3] contract line limits (SPEC.md)")
     for a in AGENTS:
         n = sum(1 for _ in open(f"agents/{a}.md", encoding="utf-8"))
         limit = LIMITS.get(a, 40)
         if n > limit:
             err(f"agents/{a}.md: {n} lines > limit {limit}")
-        else:
-            ok(f"agents/{a}.md: {n}/{limit} lines")
+    s.ok("line limits hold")
 
-    print("[5] MANIFEST.yaml: upstream pins, full sha256, no extra/missing")
+    s = Step("[4] MANIFEST.yaml: upstream pins, full sha256, no extra/missing")
     manifest = {}
     has_pin = False
     for line in open("vendor/MANIFEST.yaml", encoding="utf-8"):
         line = line.strip()
-        if "agent-skills" in line and "@" in line and re.search(r"[0-9a-f]{40}", line):
+        if "agent-skills" in line and re.search(r"[0-9a-f]{40}", line):
             has_pin = True
         if line.startswith("skills/"):
             p, h = line.split(": ")
@@ -222,10 +199,9 @@ def main():
     extra = on_disk - set(manifest)
     if extra:
         err(f"files on disk not in MANIFEST: {sorted(extra)}")
-    if not any("MANIFEST" in e for e in errors):
-        ok(f"pin present, {len(manifest)} hashes verified, {len(extra)} extra")
+    s.ok(f"pin present, {len(manifest)} hashes verified, {len(extra)} extra")
 
-    print("[6] examples/opencode.json.example")
+    s = Step("[5] examples/opencode.json.example")
     try:
         cfg = json.load(open("examples/opencode.json.example", encoding="utf-8"))
     except json.JSONDecodeError as e:
@@ -238,14 +214,18 @@ def main():
         err(
             "opencode.json.example: reviewer has no test command allow (R-4 regression)"
         )
+    if "*" not in rev:
+        err(
+            "opencode.json.example: reviewer bash map must be COMPLETE (catch-all '*' "
+            "required — a partial JSON map is defeated by frontmatter denies; probed)"
+        )
     if "model" not in cfg.get("agent", {}).get("planner", {}):
         err("opencode.json.example: planner model routing missing")
-    if not any("MANIFEST" in e or "json.example" in e for e in errors):
-        ok("example config: no global allow, reviewer tests, model routing present")
+    s.ok("example config: complete reviewer map, no global allow, model routing")
 
-    print("[7] commands/team.md")
+    s = Step("[6] commands/team.md")
     team = open("commands/team.md", encoding="utf-8").read()
-    tdata = parse_frontmatter(team, "commands/team.md", yaml_mod)
+    tdata = parse_frontmatter(team, "commands/team.md")
     if tdata is not None:
         if not tdata.get("description"):
             err("commands/team.md: description missing")
@@ -253,18 +233,16 @@ def main():
             err("commands/team.md: agent must be 'orchestrator'")
         if "$ARGUMENTS" not in team:
             err("commands/team.md: $ARGUMENTS placeholder missing")
-        if not errors or not any("team.md" in e for e in errors):
-            ok("command /team: description, agent=orchestrator, $ARGUMENTS")
+    s.ok("command /team valid")
 
-    print("[8] shell scripts: syntax")
+    s = Step("[7] shell scripts: syntax")
     for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh"):
         r = subprocess.run(["bash", "-n", sh], capture_output=True, text=True)
         if r.returncode != 0:
             err(f"{sh}: {r.stderr.strip()}")
-        else:
-            ok(f"{sh}")
+    s.ok("bash -n clean")
 
-    print("[9] Cyrillic / CJK outside allowed Russian files")
+    s = Step("[8] Cyrillic / CJK outside allowed Russian files")
     for root, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
         for fn in files:
@@ -278,12 +256,45 @@ def main():
                 err(f"{p}: Cyrillic found (allowed only in {RU_ALLOWED})")
             if CJK.search(text):
                 err(f"{p}: CJK found")
-    ok("script artifact scan done")
+    s.ok("no script artifacts")
 
-    return finish()
+    s = Step("[9] documentation reality: paths exist, review SHAs resolve & unique")
+    for doc in ("README.md", "docs/reviews.md"):
+        text = open(doc, encoding="utf-8").read()
+        for m in DOC_PATH.finditer(text):
+            path = m.group(1)
+            if not os.path.exists(path):
+                err(f"{doc}: names missing path '{path}'")
+    if not os.path.exists("docs/artifacts/native-v5-models-routing.txt"):
+        err("docs/reviews.md: promised artifact docs/artifacts/... missing")
+    shas = git_shas()
+    # subject commit = the first SHA on the "Kommit(y) ..." header line
+    # (\u041a\u043a = Cyrillic K/k — kept escaped to keep this file ASCII);
+    # SHAs merely quoted inside the body may repeat across reviews
+    subj_re = re.compile(
+        "[\u041a\u043a]\u043e\u043c\u043c\u0438\u0442(?:\u044b)?\\s+`?([0-9a-f]{7,40})"
+    )
+    seen = {}
+    for rf in sorted(fnmatch.filter(os.listdir("docs"), "review-*.md")):
+        text = open(f"docs/{rf}", encoding="utf-8").read()
+        m = subj_re.search(text[:400])
+        if not m:
+            err(
+                f"docs/{rf}: no subject commit line ('Kommit <sha>' in Cyrillic) in header"
+            )
+            continue
+        subj = m.group(1)
+        if subj not in shas:
+            err(f"docs/{rf}: subject commit {subj} not in git log")
+        elif subj in seen:
+            err(
+                f"docs/{rf}: subject {subj} already reviewed by "
+                f"docs/{seen[subj]} — each review must cover a distinct commit"
+            )
+        else:
+            seen[subj] = rf
+    s.ok("doc paths on disk, review subject commits resolve and are unique")
 
-
-def finish():
     print()
     if errors:
         print(f"VALIDATION FAILED: {len(errors)} error(s)")

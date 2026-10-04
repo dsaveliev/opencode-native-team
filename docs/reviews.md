@@ -2,9 +2,10 @@
 
 Three external review rounds shaped v5 → v5.1 → v5.1.1. Original reviews were
 received in Russian. Round 1 lives in git history only
-(`git show 266708d:docs/audit-v5.md`); rounds 2-4 are in
-`docs/review-v5.1*.md` (round 2 was reconstructed verbatim from
-correspondence — it had never been committed at the time). English summaries
+(`git show 266708d:docs/audit-v5.md`). Rounds 3+ are committed as
+`docs/review-v5.1.*.md`. The round-2 original (`review-v5.1.md`, of commit
+`266708d`, findings R-1..R-11) was never committed and is not reproduced
+verbatim here — only its English summary table below. English summaries
 with resolutions:
 
 ## Round 1 — initial audit (of v5)
@@ -43,6 +44,17 @@ with resolutions:
 | M-5 n=1 results attributed to named third parties | anonymized + "data on request" |
 | M-6 Security Model overstated protections | table matches code; every vendored file hashed |
 | M-7 redundant deny patterns; newline uncaught | `*||*`/`*>>*` removed, newline pattern added |
-| M-8 `.opencode/opencode.json` read-path unverified | `scripts/check-model-routing.sh` + saved per-run artifact (`results/*-models-routing.txt`) |
+| M-8 `.opencode/opencode.json` read-path unverified | `scripts/check-model-routing.sh` + committed pilot artifact `docs/artifacts/native-v5-models-routing.txt` |
 | tools/dashboard-gen.py violated SPEC (external writes) | removed from repo |
 | C1 no CI | `.github/workflows/ci.yml` runs `scripts/validate.py` |
+
+## Round 5 — review of v5.1.3
+
+| Finding | Resolution |
+|---|---|
+| T-1 artifact promised in reviews.md but absent | artifact committed: `docs/artifacts/native-v5-models-routing.txt`; validator step [10] now checks doc paths against disk |
+| T-2 "reconstructed round 2" was actually round 3 text | mislabeled file deleted; traceability statement made honest; round-2 original still absent (summary only) |
+| T-3 ok printed after FAIL (substring guards) | per-step error counting; ok only when the step added zero errors |
+| M-8 second half: permission merge unverified | verified empirically — and it was broken: reviewer `go test` denied in the live run (frontmatter catch-all defeats JSON allow). Fix: complete-map rule (probed twice), fixed `examples/opencode.json.example`, README note |
+| default LIMIT untested | judge A4: `Incr(n=5) -> count=5`, then `Incr(n=1) -> RESOURCE_EXHAUSTED` at defaults (two calls, no timing pressure) |
+| dead code in validate.py | strict loader via subclass, no global mutation |

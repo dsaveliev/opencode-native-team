@@ -5,9 +5,25 @@
       "model": "zhipuai-coding-plan/glm-5.3",
       "permission": {
         "bash": {
+          "*": "deny",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "git show*": "allow",
+          "git status*": "allow",
+          "ls": "allow",
+          "ls *": "allow",
+          "cat *": "allow",
+          "rg *": "allow",
           "go test ./...": "allow",
           "go vet ./...": "allow",
-          "go build ./...": "allow"
+          "go build ./...": "allow",
+          "*;*": "deny",
+          "*&&*": "deny",
+          "*|*": "deny",
+          "*`*": "deny",
+          "*$(*": "deny",
+          "*>*": "deny",
+          "*\n*": "deny"
         }
       }
     },

@@ -127,6 +127,13 @@ live in your project's `opencode.json`:
 
 An `opencode.json.example` with Go presets is installed by `install.sh`.
 
+> **Complete-map rule (probed):** if you override `permission.bash` for an
+> agent in `opencode.json`, provide the **complete** map including its own
+> `"*": "deny"` catch-all and repeat every allow the agent needs. A partial
+> map is merged behind the contract's frontmatter denies — its allows get
+> defeated (this exact bug shipped once: the reviewer's `go test` allow was
+> silently overridden until a live run caught it).
+
 ## Vendored Skills
 
 10 skills (12 files) from [agent-skills](https://github.com/addyosmani/agent-skills)

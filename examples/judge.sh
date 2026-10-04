@@ -78,6 +78,16 @@ if health_ok; then
   sleep 3
   R=$(incr judge-defaults 1)
   [ "$(cnt "$R")" = "1" ] && pass "A3 default window 2s: slid after 3s -> count=1" || fail "A3 default window (resp: $R) — WINDOW_SECONDS default may be ignored" DEFAULTS_WINDOW_FAIL
+  # A4: default LIMIT is really 5 — n=5 reaches the limit in one call, the
+  # next event must be rejected (two calls, no timing pressure; requires the
+  # n-semantics that B7 already demands: n adds n events)
+  R=$(incr judge-lim 5); [ "$(cnt "$R")" = "5" ] && LIM1=0 || LIM1=1
+  R=$(incr judge-lim 1)
+  if [ $LIM1 = 0 ] && printf '%s' "$R" | grep -q 'RESOURCE_EXHAUSTED\|ResourceExhausted'; then
+    pass "A4 default limit 5: n=5 -> count=5, next -> RESOURCE_EXHAUSTED"
+  else
+    fail "A4 default limit (resp: $R) — LIMIT default may be ignored" DEFAULTS_LIMIT_FAIL
+  fi
 fi
 stop_srv
 
