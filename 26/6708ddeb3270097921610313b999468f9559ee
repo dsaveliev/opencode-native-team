@@ -1,0 +1,49 @@
+SPEC.md
+  s_d3b744d29667a2::t_d284762289801c 23-25
+  s_d3b744d29667a2::t_e4d4ddc64fed5a 122-123,126
+agents/tester.md
+  s_d3b744d29667a2::t_da5f6fb521e150 2,5-6,8-12,15-21
+agents/reviewer.md
+  s_d3b744d29667a2::t_696ce01ec355e9 7-9,16,20-24,31-32
+agents/orchestrator.md
+  s_d3b744d29667a2::t_ef1222a8e053f2 2,5,13,30,42,47-50,52-53,57,61,63-64,72-76,81,83
+install.sh
+  s_d3b744d29667a2::t_9d305471e4ff3e 2-3,9,11,13,16,19-49,51,53
+agents/coder.md
+  s_d3b744d29667a2::t_19902b2be465a8 2,5-6,8-13,16,18-19
+agents/planner.md
+  s_d3b744d29667a2::t_63c36e37c9ae85 6-8,11,16-20,25-26
+docs/audit-v5.md
+  s_7fc35b7cff42cd::t_594129e078c32c 390-648
+  s_7fc35b7cff42cd::t_872da84cfdb081 1-389
+examples/judge.sh
+  s_d3b744d29667a2::t_5f946ec7ade1d8 2-4,6,14,17-18,29,31,33,37-48,51-53,56-57,60,64-68,70-71,73-74,76-77,79-81,83-84,90-93,97-102,104,106-109
+examples/opencode.json.example
+  s_d3b744d29667a2::t_8605bd46161097 1-12
+.gitignore
+  s_d3b744d29667a2::t_17d0f319f8fdda 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "266708ddeb3270097921610313b999468f9559ee",
+  "prompts": {},
+  "sessions": {
+    "s_7fc35b7cff42cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d682a88d-7ff8-4747-b8fb-cf6d07af0649",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_d3b744d29667a2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0386bbceffe0BroWcnkK4b6Sp",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
