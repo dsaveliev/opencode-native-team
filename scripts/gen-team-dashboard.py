@@ -203,6 +203,18 @@ def sparkline(pts, msgs, width=860, height=110):
     return "".join(s)
 
 
+AGENT_COLORS = {
+    "orchestrator": "#7c6bb0",
+    "coder": "#3f8f5f",
+    "tester": "#b45309",
+    "reviewer": "#b91c1c",
+}
+
+
+def agent_color(a):
+    return AGENT_COLORS.get(a, "#66707c")
+
+
 SESSIONS = load_sessions()
 START = run_start(SESSIONS)
 TEXTS, NERR = load_parts([s["id"] for s in SESSIONS])
@@ -257,7 +269,7 @@ cards = f"""
 """
 
 agent_rows = "".join(
-    f"<tr><td><b>{html.escape(a)}</b></td><td class=num>{d['n']}</td>"
+    f'<tr><td><b style="color:{agent_color(a)}">{html.escape(a)}</b></td><td class=num>{d["n"]}</td>'
     f"<td>{html.escape(d['model'])}</td><td class=num>{fmt_k(d['tin'])}</td>"
     f"<td class=num>{fmt_k(d['tout'])}</td>"
     f"<td class=num>{fmt_ms(max(NOW - d['last'], 0))} ago</td>"
@@ -276,7 +288,7 @@ for kind, text in TASK_LINES[:60]:
 
 log_html = "".join(
     f"<div class=ev><span class=t>{datetime.datetime.fromtimestamp(t / 1000).strftime('%H:%M:%S')}</span>"
-    f"<span class=ag>{html.escape(a)}</span> {html.escape(x[:150])}</div>"
+    f'<span class="ag" style="color:{agent_color(a)}">{html.escape(a)}</span> {html.escape(x[:150])}</div>'
     for t, a, x in TEXTS
 )
 
@@ -293,8 +305,13 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>team dashboard — {html.escape(os.path.basename(DIR))}</title>
 <style>
  body{{font-family:-apple-system,'IBM Plex Sans',system-ui,sans-serif;background:#f4f5f7;color:#1a1d21;margin:0;padding:18px;font-size:14px}}
- h1{{font-size:18px;margin:0 0 2px}} .muted{{color:#66707c;font-size:12px}}
- .meta{{font-family:ui-monospace,monospace;font-size:11px;color:#66707c;margin-bottom:12px}}
+ .head{{display:flex;justify-content:space-between;align-items:center;gap:12px}}
+ h1{{font-size:21px;font-weight:800;margin:0;letter-spacing:-.01em}}
+ .muted{{color:#66707c;font-size:12px}}
+ button{{font-family:inherit;font-size:12px;padding:4px 14px;border:1px solid #dde1e6;
+  border-radius:5px;background:#fff;color:#1a1d21;cursor:pointer}}
+ button:hover{{border-color:#3f8f5f;color:#3f8f5f}} button:active{{transform:translateY(1px)}}
+ .meta{{font-family:ui-monospace,monospace;font-size:11px;color:#66707c;margin:5px 0 16px}}
  .cards{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}}
  .card{{background:#fff;border:1px solid #dde1e6;border-radius:6px;padding:10px 14px;min-width:110px}}
  .card .v{{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}}
@@ -307,14 +324,15 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
  .live{{color:#3f8f5f;font-weight:600}}
  .feed{{max-height:300px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:11.5px}}
  .ev{{padding:3px 0;border-bottom:1px solid #f0f2f4;display:flex;gap:8px;align-items:baseline}}
- .ev .t{{color:#66707c;white-space:nowrap}} .ev .ag{{color:#b45309;font-weight:600;min-width:86px}}
+ .ev .t{{color:#66707c;white-space:nowrap}} .ev .ag{{font-weight:600;min-width:86px}}
  .th{{font-weight:600;margin:8px 0 3px}} .tdone{{color:#3f8f5f;padding:1px 0 1px 14px;font-size:12.5px}}
  .tch{{font-family:ui-monospace,monospace;color:#66707c;font-size:11.5px;margin-top:4px}}
  .bar{{height:10px;background:#eef0f2;border-radius:5px;overflow:hidden;margin:6px 0 10px}}
  .bar>div{{height:100%;background:#3f8f5f}}
 </style></head><body>
-<h1>team dashboard — {html.escape(os.path.basename(DIR))}
+<div class=head><h1>team dashboard — {html.escape(os.path.basename(DIR))}
  {"<span class=live>● live</span>" if active else "<span class=muted>○ idle</span>"}</h1>
+<button onclick="location.reload()">refresh</button></div>
 <div class=meta>project: <code>{html.escape(DIR)}</code> &middot; run start {datetime.datetime.fromtimestamp(START / 1000).strftime("%H:%M:%S")}
  &middot; refreshed {datetime.datetime.now().strftime("%H:%M:%S")} (5s) &middot; dirty files: {DIRTY}
  &middot; last activity {fmt_ms(max(NOW - last_act, 0))} ago</div>
