@@ -15,10 +15,12 @@ fi
 AGENTS_DIR="${TARGET}/.opencode/agents"
 SKILLS_DIR="${TARGET}/.opencode/skills"
 COMMANDS_DIR="${TARGET}/.opencode/commands"
+DASH_DIR="${TARGET}/.opencode/scripts"
 if [ $GLOBAL = 1 ]; then
   AGENTS_DIR="${TARGET}/agents"
   SKILLS_DIR="${TARGET}/skills"
   COMMANDS_DIR="${TARGET}/commands"
+  DASH_DIR="${TARGET}/scripts"
 fi
 
 mkdir -p "${AGENTS_DIR}" "${SKILLS_DIR}" "${COMMANDS_DIR}"
@@ -30,12 +32,11 @@ for agent in orchestrator planner coder tester reviewer; do
 done
 
 # Install dashboard scripts (live run dashboard)
-DASH_DIR="${TARGET}/.opencode/scripts"
 mkdir -p "${DASH_DIR}"
 cp "${SCRIPT_DIR}/scripts/gen-team-dashboard.py" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/team-dashboard.sh" "${DASH_DIR}/"
 chmod +x "${DASH_DIR}/team-dashboard.sh"
-echo "  ✓ dashboard scripts (.opencode/scripts/)"
+echo "  ✓ dashboard scripts (${DASH_DIR})"
 
 # Install commands (/team, /team-change, ...)
 for cmd in "${SCRIPT_DIR}"/commands/*.md; do

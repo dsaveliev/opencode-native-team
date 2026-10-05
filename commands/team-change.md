@@ -10,8 +10,11 @@ Pre-flight — live dashboard (config: `.opencode/team-dashboard.json`, default 
   is present — if the tool is unavailable or errors, THAT is the headless
   signal: skip silently and continue. Never skip the attempt by judging the
   session "probably headless".
-- Start: `bash .opencode/scripts/team-dashboard.sh start "$(pwd)"`
-- On finish — success or failure: `bash .opencode/scripts/team-dashboard.sh stop "$(pwd)"`
+- Resolve the dashboard script once: `.opencode/scripts/team-dashboard.sh`
+  in the project, else `~/.config/opencode/scripts/team-dashboard.sh`
+  (global install); if neither exists, skip the dashboard silently.
+- Start: `bash <resolved script> start "$(pwd)"`
+- On finish — success or failure: `bash <resolved script> stop "$(pwd)"`
 
 Implement the existing openspec change: $1
 

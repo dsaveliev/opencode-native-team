@@ -180,8 +180,10 @@ git + openspec tasks every few seconds, zero dependencies.
   `examples/team-dashboard.json`): `mode` = `ask` (default — the team asks
   once per run via the question tool; headless runs skip silently) |
   `always` | `never`, plus `refresh` seconds and `open_browser`.
-- `install.sh` drops the scripts into `.opencode/scripts/`; the `/team` and
-  `/team-change` commands start/stop the dashboard automatically.
+- `install.sh` drops the scripts into `.opencode/scripts/` (global install:
+  `~/.config/opencode/scripts/`); the `/team` and `/team-change` commands
+  start/stop the dashboard automatically, resolving the script project-local
+  first, then the global copy.
 - Manual: `.opencode/scripts/team-dashboard.sh start|stop|once|status <dir>`;
   after stop the final HTML stays in `tmp/team-dashboard.html`.
 - Panels: cards, run-stage stepper, activity swimlanes (per-agent session
