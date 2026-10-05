@@ -1,0 +1,26 @@
+README.md
+  s_fca526da72e78a::t_5fc0c2b032d385 183-186
+commands/team.md
+  s_fca526da72e78a::t_10bb009118b1d5 13-17
+install.sh
+  s_fca526da72e78a::t_63a0e19c9060b0 39
+  s_fca526da72e78a::t_1049ec9a6219f7 18,23
+commands/team-change.md
+  s_fca526da72e78a::t_0eb7366064c37f 13-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "689872b95b02ff0b1022db3ca515d9165006a049",
+  "prompts": {},
+  "sessions": {
+    "s_fca526da72e78a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ef28e623fffe5vR6Ciwg7Xkvbk",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
