@@ -26,7 +26,9 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENTS = ["orchestrator", "planner", "tester", "reviewer", "coder"]
-LIMITS = {"orchestrator": 90}  # subagents default to 40
+# subagents default to 40; reviewer/orchestrator carry the ctx_* permission
+# matrix (change integrate-context-mode-ponytail, design D3)
+LIMITS = {"orchestrator": 96, "reviewer": 46}
 CYRILLIC = re.compile(r"[\u0400-\u04ff\u0500-\u052f]")
 CJK = re.compile(
     r"[\u2e80-\u2eff\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff"
@@ -188,6 +190,37 @@ def main():
             err(f"agents/{a}.md: {n} lines > limit {limit}")
     s.ok("line limits hold")
 
+    s = Step("[3b] context-mode permission matrix (plugin-integrations spec)")
+    # deny admin/destructive meta tools for every role; read-only roles also
+    # deny sandbox-exec/network/index tools (they bypass bash/webfetch denies);
+    # trusted roles must NOT deny sandbox tools (token-saving goal, design D3).
+    # Keys use the SHORT internal tool names (ctx_execute, probed 2026-10-07
+    # on opencode 1.18.34: the prefixed context-mode_ctx_* form does not match
+    # — probes F1 vs F1b in the change's design.md).
+    CTX_ALL_DENY = ("ctx_upgrade", "ctx_purge")
+    CTX_READONLY_DENY = (
+        "ctx_execute",
+        "ctx_execute_file",
+        "ctx_batch_execute",
+        "ctx_fetch_and_index",
+        "ctx_index",
+    )
+    for a in AGENTS:
+        perm = fm.get(a, {}).get("permission", {})
+        for tool in CTX_ALL_DENY:
+            if perm.get(tool) != "deny":
+                err(f"agents/{a}.md: ctx matrix — {tool} must be 'deny'")
+        for tool in CTX_READONLY_DENY:
+            if a in ("planner", "reviewer"):
+                if perm.get(tool) != "deny":
+                    err(f"agents/{a}.md: read-only role — {tool} must be 'deny'")
+            elif perm.get(tool) == "deny":
+                err(
+                    f"agents/{a}.md: sandbox tool {tool} must NOT be denied"
+                    " (token-saving goal, design D3)"
+                )
+    s.ok("ctx matrix exact for all 5 contracts")
+
     s = Step("[4] MANIFEST.yaml: upstream pins, full sha256, no extra/missing")
     manifest = {}
     has_pin = False
@@ -224,6 +257,19 @@ def main():
     except json.JSONDecodeError as e:
         err(f"opencode.json.example: invalid JSON: {e}")
         cfg = {}
+    # plugin-integrations spec: recommended plugin entries declared
+    # additively; mcp must not also reference context-mode (plugin + mcp
+    # together register zero ctx_* tools upstream)
+    if cfg.get("plugin") != ["context-mode", "@dietrichgebert/ponytail"]:
+        err(
+            "opencode.json.example: plugin array must be exactly "
+            "['context-mode', '@dietrichgebert/ponytail']"
+        )
+    if "context-mode" in cfg.get("mcp", {}):
+        err(
+            "opencode.json.example: mcp must not reference context-mode — "
+            "the plugin path registers ctx_* tools natively"
+        )
     # C-2 (probed, supersedes R-5): headless/autonomous is the primary mode;
     # top-level allows are REQUIRED for it and do NOT weaken subagent
     # contracts (frontmatter denies take precedence over top-level allows)
@@ -280,6 +326,7 @@ def main():
             if st not in ("proposal", "design", "tasks", "apply", "verify"):
                 err(f"examples/team-skills.json: invalid stage {st!r}")
     import ast
+
     ast.parse(open("scripts/gen-team-dashboard.py", encoding="utf-8").read())
     dash = json.load(open("examples/team-dashboard.json", encoding="utf-8"))
     if dash.get("mode") not in ("ask", "always", "never"):
@@ -287,14 +334,29 @@ def main():
     if not isinstance(dash.get("refresh", 5), int) or dash.get("refresh", 5) < 2:
         err("examples/team-dashboard.json: refresh must be int >= 2")
     if "coverage_ttl" not in dash:
-        err("examples/team-dashboard.json: coverage_ttl must be declared "
-            "(0 = off, default) — undocumented keys drift back (E-3)")
-    r = subprocess.run([sys.executable, "scripts/test-dashboard.py"],
-                       capture_output=True, text=True)
+        err(
+            "examples/team-dashboard.json: coverage_ttl must be declared "
+            "(0 = off, default) — undocumented keys drift back (E-3)"
+        )
+    r = subprocess.run(
+        [sys.executable, "scripts/test-dashboard.py"], capture_output=True, text=True
+    )
     if r.returncode != 0:
         err("dashboard behavioral test failed:\n" + r.stdout[-800:])
-    for sh in ("install.sh", "examples/judge.sh", "scripts/check-model-routing.sh",
-               "scripts/sync-skills.sh", "scripts/team-dashboard.sh"):
+    r = subprocess.run(
+        [sys.executable, "scripts/test-integrate-plugins.py"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        err("integrate-plugins behavioral test failed:\n" + r.stdout[-800:])
+    for sh in (
+        "install.sh",
+        "examples/judge.sh",
+        "scripts/check-model-routing.sh",
+        "scripts/sync-skills.sh",
+        "scripts/team-dashboard.sh",
+    ):
         r = subprocess.run(["bash", "-n", sh], capture_output=True, text=True)
         if r.returncode != 0:
             err(f"{sh}: {r.stderr.strip()}")
@@ -364,8 +426,12 @@ def main():
     for rf in sorted(fnmatch.filter(os.listdir("docs"), "review-*.md")):
         m = re.match(r"review-v5\.1\.(\d+)\.md", rf)
         if m and int(m.group(1)) + 2 not in have_rounds:
-            err(f"docs/{rf}: no 'Round {int(m.group(1)) + 2}' section in docs/reviews.md")
-    s.ok("doc paths on disk, review subject commits resolve and are unique, journal complete")
+            err(
+                f"docs/{rf}: no 'Round {int(m.group(1)) + 2}' section in docs/reviews.md"
+            )
+    s.ok(
+        "doc paths on disk, review subject commits resolve and are unique, journal complete"
+    )
 
     print()
     if errors:

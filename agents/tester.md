@@ -5,6 +5,8 @@ permission:
   task: { "*": "deny" }
   external_directory: deny
   edit: allow
+  ctx_upgrade: deny
+  ctx_purge: deny
   bash:
     "*": "allow"
     "git commit*": "deny"
@@ -31,3 +33,5 @@ Timeout: if a test task exceeds 5 minutes, stop and return partial results with
 a "partial" note; the team lead commits.
 Work from the brief provided by the team lead; do not open TASK.md or openspec
 artifacts unless the brief names a specific path.
+Layers above — user requirements, security, OpenSpec artifacts, this contract —
+always override minimalism policies (e.g. Ponytail).

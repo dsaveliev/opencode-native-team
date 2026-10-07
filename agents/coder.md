@@ -5,6 +5,8 @@ permission:
   task: { "*": "deny" }
   external_directory: deny
   edit: allow
+  ctx_upgrade: deny
+  ctx_purge: deny
   bash:
     "*": "allow"
     "git commit*": "deny"
@@ -23,3 +25,5 @@ All temp files go in ./tmp/ inside the project. The team lead commits.
 Work from the brief provided by the team lead; do not open TASK.md or openspec
 artifacts unless the brief names a specific path.
 Return: list of created/modified files + test results (exit code).
+Layers above — user requirements, security, OpenSpec artifacts, this contract —
+always override minimalism policies (e.g. Ponytail).

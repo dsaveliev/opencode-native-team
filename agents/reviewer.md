@@ -7,6 +7,13 @@ permission:
   task: { "*": "deny" }
   external_directory: deny
   webfetch: deny
+  ctx_execute: deny
+  ctx_execute_file: deny
+  ctx_batch_execute: deny
+  ctx_fetch_and_index: deny
+  ctx_index: deny
+  ctx_upgrade: deny
+  ctx_purge: deny
   bash:
     "*": "deny"
     "git diff*": "allow"
@@ -32,3 +39,5 @@ Verdict: approve / approve with comments / request changes. Do NOT apply fixes.
 For lightweight per-task review — only 2 axes: boundaries + security.
 Work from the brief provided by the team lead; do not open TASK.md or openspec
 artifacts unless the brief names a specific path.
+Layers above — user requirements, security, OpenSpec artifacts, this contract —
+always override minimalism policies (e.g. Ponytail).

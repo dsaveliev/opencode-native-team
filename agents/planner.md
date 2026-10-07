@@ -6,6 +6,13 @@ permission:
   task: { "*": "deny" }
   external_directory: deny
   webfetch: deny
+  ctx_execute: deny
+  ctx_execute_file: deny
+  ctx_batch_execute: deny
+  ctx_fetch_and_index: deny
+  ctx_index: deny
+  ctx_upgrade: deny
+  ctx_purge: deny
   bash:
     "*": "deny"
     "ls": "allow"
@@ -26,3 +33,5 @@ recommendation), task decomposition (acceptance criteria + edge cases + verifica
 command). For each task, indicate dependent and independent tasks (for parallelization).
 Text only; do not create files. Work from the brief provided by the team lead;
 do not open TASK.md or openspec artifacts unless the brief names a specific path.
+Layers above — user requirements, security, OpenSpec artifacts, this contract —
+always override minimalism policies (e.g. Ponytail).
