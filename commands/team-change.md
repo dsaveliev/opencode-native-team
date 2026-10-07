@@ -20,6 +20,11 @@ Implement the existing openspec change: $1
 
 Mode: implementation-only (the change artifacts already exist).
 
+Run brief: if RUN-BRIEF.md exists in the repo root, apply it after hydrating
+the change state — a read-only execution-policy overlay (HOW only).
+On finish of a briefed run: write the summary per the brief's §11; ledger —
+BLOCKERS.md (schema in the RUN-BRIEF template §11).
+
 - Read openspec/changes/$1/proposal.md, design.md and tasks.md first.
 - Do NOT create a new change; do NOT rewrite proposal/design (marking tasks
   [x] with proofs and adding observability comments is allowed).

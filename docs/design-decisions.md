@@ -116,3 +116,99 @@ embedded in the orchestrator contract.
 **Rationale:** In v2–v4, skill selection was ad-hoc — the same task produced
 different skill sets. A mapping table removes this variance completely, the
 cheapest remaining reproducibility lever.
+
+## 14. Run brief as a fourth artifact layer
+
+**Decision:** An optional, operator-authored `RUN-BRIEF.md` in the project root
+(upgraded from `examples/RUN-BRIEF.md`) constrains how a run executes: scope
+fences, budgets, gates, recovery policy, handoff. Run state stays distributed —
+`tasks.md` = intended work, git = execution history, ledgers = decisions and
+blockers, the summary = run-level state. We standardize the protocol, not the
+storage: no unified `run-state.md`.
+
+**Rejected alternatives:**
+- A single `run-state.md` — one file, muddled semantics; each artifact owning
+  one semantic survived compaction and human review better in the E1 run.
+- Expanding TASK.md with run-control sections — mixes WHAT and HOW; TASK.md
+  stays fully about what to build.
+
+**Rationale:** The E1 overnight run proved the layer empirically (197-line
+brief over `/team-change`, zero operator interventions). Opt-in file
+convention keeps default behavior byte-identical when no brief is present.
+
+## 15. Monotonic run control
+
+**Decision:** The brief may narrow execution, never widen it: capabilities are
+the intersection of runtime permissions, project policy, role permissions and
+the brief's scope; numeric budgets take the minimum across levels; a side
+effect denied by any layer is denied. The brief is read-only during the run
+(loaded before the first write, revision recorded); editing it mid-run starts
+a new run. It never enters the WHAT domain — requirements, acceptance
+semantics and dependency direction belong to TASK/OpenSpec and the planner.
+
+**Rejected alternatives:**
+- A precedence ladder (user > brief > contracts > defaults) — a higher-ranked
+  source could widen what a lower layer denies; intersection cannot.
+- A rules engine enforcing brief content — content varies per run; the outer
+  layers are already enforced mechanically by opencode permissions, and the
+  brief is trusted operator input, not agent output.
+
+**Rationale:** Matches opencode's own permission semantics (frontmatter denies
+beat top-level allows). Closes the self-weakening loop — an agent that failed
+verification cannot relax its own policy and retry.
+
+## 16. Executed recovery (change long-running-recovery)
+
+**Decision:** Briefed runs execute the brief's recovery policy as contract
+clauses: effective retries = min(brief, 3); security-relevant failures get 0
+retries and escalate; exhaustion is classified (independent next unit →
+continue, only dependents → BLOCKED, systemic → escalate) instead of blindly
+moving on; PARK(X) propagates BLOCKED to every `Depends on: X` task while the
+independent frontier continues, and an empty frontier leaves the run at
+run-level BLOCKED. The planner emits machine-readable `Depends on:` markers.
+A global, always-on no-progress guard requires every iteration to leave a
+durable trace (task / evidence / implementation / decision / blocker state);
+two trace-less iterations force a strategy rotation or a park.
+
+**Rejected alternatives:**
+- Recovery machinery in all runs — breaks the no-brief compatibility
+  criterion of the run-briefs spec; only the no-progress guard is global.
+- A dedicated recovery subagent — no new roles; recovery is orchestration,
+  not implementation.
+- Automated tests for the recovery behavior — it lives in contract text; the
+  runbook (`docs/recovery-experiment.md`) carries the verification on a real
+  run instead.
+
+**Rationale:** The two empirically observed failure modes of long runs —
+contaminated continuation (next unit on a broken base) and death-spiral
+retries — are closed by classification + propagation; spin without progress
+is closed by the durable-trace guard. `min`-merge keeps the monotonic run
+control of decision #15 intact.
+
+## 17. Run observability artifacts (change run-observability)
+
+**Decision:** Briefed runs end with `RUN-SUMMARY.md` (terminal state, criterion
+table with evidence paths, branch logs for human push review, rolled-up
+ledger items with one human action each, negative confirmations, brief path +
+revision; written last, committed by the team lead). Parked, blocked and
+escalated units live in `BLOCKERS.md` — the authoritative disposition ledger
+(unit | criterion | why | what unblocks); DECISIONS.md stays for resolved
+ambiguities. Run-state precedence: BLOCKERS.md > tasks.md disposition comments
+> RUN-SUMMARY (derived snapshot). `validate.py` mechanically checks the
+template's canonical headings; `scripts/setup-sandbox.sh` builds a disposable
+proving ground for the recovery/observability drills.
+
+**Rejected alternatives:**
+- A unified `run-state.md` — already rejected in #14; each artifact keeps one
+  semantic.
+- A dashboard disposition panel — deferred: zero new parsing surface now;
+  dispositions are visible in comments, ledger and summary; named follow-up
+  when a live need appears.
+- Orchestrator contract lines for the summary duty — cap 114/115 (B-D6);
+  the duty lives in the two command finish-hooks.
+
+**Rationale:** B's contracts already reference "the ledger" and "the
+handoff"; this change defines both. The precedence ladder prevents three-way
+divergence between comments, ledger and summary; the mechanical check guards
+the template that the future generator (change run-brief-interactive) will
+read as its single source of truth.

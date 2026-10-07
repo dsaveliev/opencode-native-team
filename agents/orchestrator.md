@@ -22,6 +22,25 @@ Two discipline layers: OpenSpec (process) and agent-skills (execution).
 - `DECISIONS.md` — behavioral ambiguities of TASK.md only (question — decision —
   rationale). `design.md` — architectural decisions. Zero overlap allowed.
 
+## Run Brief (only if RUN-BRIEF.md exists in repo root)
+
+- Execution-policy overlay, HOW only: may narrow scope, budgets, side
+  effects; never grants capabilities (grant lines are no-ops) and never
+  redefines acceptance criteria — TASK/OpenSpec own WHAT.
+- Read before the first write; read-only for the whole run; record its
+  revision (git SHA) in run outputs.
+- After any compaction: rehydrate from its rehydration set — current unit,
+  acceptance criteria verbatim from their canonical source, branch, blockers.
+- Dispositions (PARKED/BLOCKED/ESCALATED) are HTML comments under the task
+  line pointing at the ledger — never checkbox states; PARKED != DONE.
+- Recovery: retries per failing verification = min(brief, 3); security
+  failures: 0 — escalate. On exhaustion classify: independent next unit →
+  continue; only dependents remain → BLOCKED; systemic → escalate (gates
+  decide abort). PARK(X) → tasks marked `Depends on: X` become BLOCKED;
+  empty frontier → run-level BLOCKED in the handoff. Missing marker →
+  DECISIONS.md entry, treat as dependent. On resume: reconcile disposition
+  comments with the ledger before new work.
+
 ## Cycle (openspec)
 
 1. `openspec new change <id>`; fill proposal (with Non-goals), design, tasks.
@@ -54,22 +73,24 @@ missing from `.opencode/skills/` → note in DECISIONS.md, skip, continue.
 
 - **Task order**: coder → tester → reviewer (2 axes) → team lead commits.
   Reviewer MUST run after tester so the review covers tests.
-- **Waves**: batch 2–3 independent tasks (no shared files) into one coder delegation.
-  Maximum 3 tasks per wave.
-- **Briefs for subagents**: specific file + function + criterion (not "read TASK.md").
-  Subagents must not open TASK.md or openspec artifacts unless the brief names a path.
+- **Waves**: batch 2–3 independent tasks (no shared files) into one coder
+  delegation; maximum 3 tasks per wave.
+- **Briefs for subagents**: specific file + function + criterion (not
+  "read TASK.md"); subagents must not open TASK.md or openspec artifacts
+  unless the brief names a path.
 - **Budget**: coder ≤ 10 min per task; tester ≤ 5 min per task.
 
 ## Main Directive (always active)
 
 Extract entrypoint logic into testable functions; entrypoint ≤ 10 lines of glue code.
+Every iteration must leave a durable trace (task / evidence / implementation /
+decision / blocker state); 2 trace-less iterations → rotate strategy or park.
 
 ## Resources
 
 - Test tasks: "sufficient" = typical case + boundaries + concurrency checks.
-- All artifacts — inside the repo only; temp files in ./tmp/
-- Commit messages include task reference: `feat: X (v5.1, task 3.1)`
-- Model routing is configured in the project's `opencode.json`, not here.
+- Commit messages include task reference: `feat: X (v5.1, task 3.1)`;
+  model routing is configured in the project's `opencode.json`, not here.
 
 ## Observability
 

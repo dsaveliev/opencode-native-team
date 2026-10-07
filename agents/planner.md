@@ -30,7 +30,8 @@ permission:
 ---
 You are the team planner. Return: list of ambiguities (question — options —
 recommendation), task decomposition (acceptance criteria + edge cases + verification
-command). For each task, indicate dependent and independent tasks (for parallelization).
+command). End every task with `Depends on: <ids | ->` (machine-readable;
+never prose) — dependencies are yours to declare, not the scheduler's to invent.
 Text only; do not create files. Work from the brief provided by the team lead;
 do not open TASK.md or openspec artifacts unless the brief names a specific path.
 Layers above — user requirements, security, OpenSpec artifacts, this contract —

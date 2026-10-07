@@ -26,9 +26,10 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENTS = ["orchestrator", "planner", "tester", "reviewer", "coder"]
-# subagents default to 40; reviewer/orchestrator carry the ctx_* permission
-# matrix (change integrate-context-mode-ponytail, design D3)
-LIMITS = {"orchestrator": 96, "reviewer": 46}
+# subagents default to 40; reviewer carries the ctx_* permission matrix,
+# orchestrator carries dual-layer wiring + run-brief overlay with executed
+# recovery (SPEC.md, change long-running-recovery D6)
+LIMITS = {"orchestrator": 115, "reviewer": 46}
 CYRILLIC = re.compile(r"[\u0400-\u04ff\u0500-\u052f]")
 CJK = re.compile(
     r"[\u2e80-\u2eff\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff"
@@ -316,6 +317,22 @@ def main():
             if "$ARGUMENTS" not in ctext and "$1" not in ctext:
                 err(f"{cf}: $ARGUMENTS/$1 placeholder missing")
     s.ok("commands /team and /team-change valid")
+
+    s = Step("[6b] RUN-BRIEF template canonical headings")
+    btext = open("examples/RUN-BRIEF.md", encoding="utf-8").read()
+    for i in range(1, 13):
+        if not re.search(rf"^## {i}\. \S", btext, flags=re.M):
+            err(f"examples/RUN-BRIEF.md: canonical heading missing: ## {i}.")
+    for head in (
+        "## Immutable Categories",
+        "## Merge Rules",
+        "## Run Identification",
+        "## Appendix: State and Signal Taxonomy",
+        "## Minimal Valid Brief (example)",
+    ):
+        if head not in btext:
+            err(f"examples/RUN-BRIEF.md: canonical heading missing: {head}")
+    s.ok("run-brief template headings complete")
 
     s = Step("[7] shell scripts: syntax + skills config schema")
     ts = json.load(open("examples/team-skills.json", encoding="utf-8"))

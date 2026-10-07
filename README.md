@@ -98,6 +98,29 @@ Adapt the installed config to the project:
   feature. First run — pick a low-risk feature and audit `DECISIONS.md`
   afterwards: it lists every point where the spec was ambiguous.
 
+## Run briefs (long-running runs)
+
+For unattended, long-running runs, drop a `RUN-BRIEF.md` into the project
+root (template: [`examples/RUN-BRIEF.md`](examples/RUN-BRIEF.md)). Both
+`/team` and `/team-change` detect it before starting and treat it as a
+read-only execution-policy overlay: scope fences, reading and retry budgets,
+gates, recovery policy, and the morning handoff.
+
+The brief governs HOW the run proceeds — it may narrow execution, but never
+grants capabilities, never redefines acceptance criteria, and is never
+edited mid-run. TASK.md and OpenSpec artifacts keep owning WHAT. No brief —
+no behavior change. A minimal brief is ~15 lines (envelope, mission
+reference, decision authority, scope map, termination). Roadmap: recovery
+semantics (dispositions, dependency propagation) and observability
+(RUN-SUMMARY) arrive as follow-up changes.
+
+Briefed runs also end with `RUN-SUMMARY.md` (terminal state, evidence table,
+branch logs, one human action per blocker) and keep dispositions in
+`BLOCKERS.md`; `scripts/setup-sandbox.sh <dir>` builds a disposable proving
+ground for drills — see `docs/recovery-experiment.md` §3. Generate a brief
+without typing canonical text: `python3 scripts/gen-run-brief.py` or
+`/team-brief` (questions in, verbatim blocks out).
+
 ## Team
 
 | Role | Mode | Can write? | Temp | Model | Description |

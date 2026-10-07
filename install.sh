@@ -35,8 +35,9 @@ done
 mkdir -p "${DASH_DIR}"
 cp "${SCRIPT_DIR}/scripts/gen-team-dashboard.py" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/team-dashboard.sh" "${DASH_DIR}/"
+cp "${SCRIPT_DIR}/scripts/gen-run-brief.py" "${DASH_DIR}/"
 chmod +x "${DASH_DIR}/team-dashboard.sh"
-echo "  ✓ dashboard scripts (${DASH_DIR})"
+echo "  ✓ dashboard + brief-generator scripts (${DASH_DIR})"
 
 # Install commands (/team, /team-change, ...)
 for cmd in "${SCRIPT_DIR}"/commands/*.md; do

@@ -26,3 +26,9 @@ table, delegation order coder → tester → reviewer, commits with task
 references. Do not ask questions: resolve ambiguities yourself and record each
 one in DECISIONS.md (question — decision — rationale). All artifacts stay
 inside the repo; temp files in ./tmp/.
+
+Run brief: if RUN-BRIEF.md exists in the repo root, read it before starting;
+its sections are an execution-policy overlay (HOW only: may narrow execution,
+never grant or redefine acceptance); read-only for the whole run.
+On finish of a briefed run: write the run summary per the brief's §11
+(RUN-SUMMARY.md); the dispositions ledger is BLOCKERS.md.
