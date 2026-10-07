@@ -1,0 +1,38 @@
+agents/orchestrator.md
+  s_0ec21324e49144::t_e0f04f076d1346 84-85
+  s_0ec21324e49144::t_04d9430b89d0e4 12-13
+agents/coder.md
+  s_0ec21324e49144::t_764e930f32b2d6 28-29
+  s_0ec21324e49144::t_04d9430b89d0e4 8-9
+agents/planner.md
+  s_0ec21324e49144::t_0cb5fcdfbb31c0 36-37
+  s_0ec21324e49144::t_04d9430b89d0e4 9-15
+scripts/validate.py
+  s_0ec21324e49144::t_d8a70f3c5b1fd6 260-272
+  s_0ec21324e49144::t_960e5bf285b119 193-195,201,207-223
+  s_0ec21324e49144::t_c80477886e9860 29-31,329,337-343,353-359,429-434
+  s_0ec21324e49144::t_99c44c60c21300 346-352
+  s_0ec21324e49144::t_d8a76ef7ac15bd 196-200,202-206
+agents/reviewer.md
+  s_0ec21324e49144::t_04d9430b89d0e4 10-16
+  s_0ec21324e49144::t_9bf510091dafea 42-43
+agents/tester.md
+  s_0ec21324e49144::t_1cf9fa37064b1e 36-37
+  s_0ec21324e49144::t_04d9430b89d0e4 8-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "6311952d6c1d4b4bacd636dbbf8296c2a6b66585",
+  "prompts": {},
+  "sessions": {
+    "s_0ec21324e49144": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eeabd4b36ffeOXlrwMmofrAm3d",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
