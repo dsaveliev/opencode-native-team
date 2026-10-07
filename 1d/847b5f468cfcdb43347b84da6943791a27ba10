@@ -1,0 +1,23 @@
+install.sh
+  s_0ec21324e49144::t_74ab9fa084b4ee 119-127
+scripts/integrate-plugins.py
+  s_0ec21324e49144::t_02d4c0ca4cf886 1-111
+scripts/test-integrate-plugins.py
+  s_0ec21324e49144::t_d0cad21f9d5be1 1-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1d847b5f468cfcdb43347b84da6943791a27ba10",
+  "prompts": {},
+  "sessions": {
+    "s_0ec21324e49144": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eeabd4b36ffeOXlrwMmofrAm3d",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
