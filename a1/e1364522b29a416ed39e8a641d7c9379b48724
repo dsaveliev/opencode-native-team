@@ -1,0 +1,96 @@
+openspec/specs/run-briefs/spec.md
+  s_0404b8eae6cf69::t_bbbe2e1a4f6c08 200-262
+  s_0404b8eae6cf69::t_85f8f0e3fc9d56 1-122
+  s_0404b8eae6cf69::t_55b42768e4ec17 263-287
+  s_0404b8eae6cf69::t_203ae12fabb40f 123-199
+commands/team.md
+  s_0404b8eae6cf69::t_357db4c00db1f3 29,31
+  s_0404b8eae6cf69::t_71cbaee85e204e 33-34
+  s_0404b8eae6cf69::t_661ee2256b610a 30,32
+scripts/gen-run-brief.py
+  s_0404b8eae6cf69::t_feaafcb40460b6 134-135
+  s_0404b8eae6cf69::t_b948deac092471 170
+  s_0404b8eae6cf69::t_0e6ea8e713d8b8 1-133,136-161,165-169,171-188,190-210
+  s_0404b8eae6cf69::t_273cce1e6144b3 162-164
+  s_0404b8eae6cf69::t_b13a8742aaec93 189
+docs/recovery-experiment.md
+  s_0404b8eae6cf69::t_eb4cc5d46fd50b 29-34
+  s_0404b8eae6cf69::t_fc53a59ac9cf62 1-28,36-60
+  s_0404b8eae6cf69::t_5cebf3a4c9fa74 94-118
+  s_0404b8eae6cf69::t_bb86368dc4a341 119-132
+  s_0404b8eae6cf69::t_576e2337b87b97 35
+  s_0404b8eae6cf69::t_dadbe3b2d77cba 61-93
+scripts/test-gen-run-brief.py
+  s_0404b8eae6cf69::t_82c1547dc4f6c3 1-81
+agents/orchestrator.md
+  s_0404b8eae6cf69::t_96df6ad370caa3 86-87
+  s_0404b8eae6cf69::t_727b00cbb8accd 25-35,43
+  s_0404b8eae6cf69::t_5842c314ec4805 76-80
+  s_0404b8eae6cf69::t_246baf67ea831a 92-93
+  s_0404b8eae6cf69::t_82cc9b5213cb4c 36-42
+README.md
+  s_0404b8eae6cf69::t_4f6fd183c745e9 101-116
+  s_0404b8eae6cf69::t_cf7684232c4612 120-122
+  s_0404b8eae6cf69::t_96029856311834 117-119,123
+SPEC.md
+  s_0404b8eae6cf69::t_09b5c4a706aa64 101-102
+  s_0404b8eae6cf69::t_f258528464bbb2 103
+agents/planner.md
+  s_0404b8eae6cf69::t_f175cb1a4ec2a0 33-34
+commands/team-brief.md
+  s_0404b8eae6cf69::t_a40564ab543777 1-11
+scripts/validate.py
+  s_0404b8eae6cf69::t_f8b1dd7f65db03 29
+  s_0404b8eae6cf69::t_8597afcf003348 321-322,333-336
+  s_0404b8eae6cf69::t_a0f47edbe37fc3 323-332
+  s_0404b8eae6cf69::t_1d33333ef1f83d 30-32
+examples/RUN-BRIEF.md
+  s_0404b8eae6cf69::t_477b68477594cb 134-140
+  s_0404b8eae6cf69::t_f6bc9db4d44ccf 167
+  s_0404b8eae6cf69::t_903841ee645bfc 90-91
+  s_0404b8eae6cf69::t_915236b5bb58e1 36-37
+  s_0404b8eae6cf69::t_fe82e76c297b86 1-35,38-89,92-117,123-133,141-166,168-188
+  s_0404b8eae6cf69::t_2aaa082a112129 118-122
+docs/design-decisions.md
+  s_0404b8eae6cf69::t_d999595760a40f 119-158
+  s_0404b8eae6cf69::t_2bcbfa08e79857 159-186
+  s_0404b8eae6cf69::t_6126f5da4a91bc 187-214
+scripts/setup-sandbox.sh
+  s_0404b8eae6cf69::t_86a1df9f14b3bb 9-10
+  s_0404b8eae6cf69::t_889b3edacd7cac 20-25
+  s_0404b8eae6cf69::t_42639aa8763821 1-8,11-19,26-70
+openspec/changes/archive/2026-10-07-run-brief-interactive/tasks.md
+  s_0404b8eae6cf69::t_55b42768e4ec17 1-41
+commands/team-change.md
+  s_0404b8eae6cf69::t_75926883f86780 23,27
+  s_0404b8eae6cf69::t_dded14b37142d1 24
+  s_0404b8eae6cf69::t_e68c14efe7e43d 25-26
+install.sh
+  s_0404b8eae6cf69::t_bc490db8a87869 38,40
+openspec/changes/archive/2026-10-07-long-running-recovery/.openspec.yaml
+  s_0404b8eae6cf69::t_434a24e13e9b31 1-2
+openspec/changes/archive/2026-10-07-prompt-template/.openspec.yaml
+  s_0404b8eae6cf69::t_6b2c5d6c268767 1-2
+openspec/changes/archive/2026-10-07-run-brief-interactive/.openspec.yaml
+  s_0404b8eae6cf69::t_c99e02d5f4070d 1-2
+openspec/changes/archive/2026-10-07-run-observability/.openspec.yaml
+  s_0404b8eae6cf69::t_d44d6625fc5461 1-2
+openspec/changes/archive/2026-10-07-run-observability/tasks.md
+  s_0404b8eae6cf69::t_2673ed948f586e 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a1e1364522b29a416ed39e8a641d7c9379b48724",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
