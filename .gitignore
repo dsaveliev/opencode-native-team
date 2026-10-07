@@ -1,6 +1,7 @@
 *.out
 tmp/
-bin/
+/bin/*
+!/bin/team-dash
 .cov
 .opencode/
 __pycache__/

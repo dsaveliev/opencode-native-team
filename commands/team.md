@@ -3,9 +3,12 @@ description: Run the native-team dev cycle (plan → code → test → review �
 agent: orchestrator
 ---
 
-Pre-flight — live dashboard (config: `.opencode/team-dashboard.json`, default mode "ask"):
-- mode "never" -> skip silently. mode "always" -> start now.
-- mode "ask" (or file absent) -> ALWAYS attempt the question tool exactly once:
+Pre-flight — live dashboard (config chain: project `.opencode/team-dashboard.json`
+over `~/.config/opencode/team-dashboard.json` over defaults; keys: mode,
+refresh, open_browser, port):
+- mode "never" -> skip silently. mode "always" -> start now — unconditionally,
+  including `--auto` runs (no question is needed).
+- mode "ask" (or chain absent) -> ALWAYS attempt the question tool exactly once:
   "Create live dashboard for this run?". Do NOT decide yourself whether a user
   is present — if the tool is unavailable or errors, THAT is the headless
   signal: skip silently and continue. Never skip the attempt by judging the
@@ -13,8 +16,11 @@ Pre-flight — live dashboard (config: `.opencode/team-dashboard.json`, default 
 - Resolve the dashboard script once: `.opencode/scripts/team-dashboard.sh`
   in the project, else `~/.config/opencode/scripts/team-dashboard.sh`
   (global install); if neither exists, skip the dashboard silently.
-- Start: `bash <resolved script> start "$(pwd)"`
+- Start BEFORE any run work: `bash <resolved script> serve "$(pwd)"` —
+  serves `http://127.0.0.1:<port>/` (fixed port from config) and adopts an
+  in-flight window automatically.
 - On finish — success or failure: `bash <resolved script> stop "$(pwd)"`
+  (stops the server; the final snapshot stays at tmp/team-dashboard.html).
 
 Assignment:
 

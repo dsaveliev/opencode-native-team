@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gen-team-dashboard.py <project-dir> — one generation pass (v2).
+"""gen-team-dashboard.py <project-dir> — one generation pass (v3).
 
 Writes <project>/tmp/team-dashboard.html atomically from:
   - opencode session DB (agents, tokens, activity, work log, tool errors,
@@ -7,7 +7,15 @@ Writes <project>/tmp/team-dashboard.html atomically from:
   - git log (commit timeline with a "now" marker, dirty files)
   - openspec tasks (run-window aware: archived changes count only if
     archived on/after the run start date)
-  - .opencode/team-dashboard.json (refresh seconds)
+  - team-dashboard.json (project .opencode/ over ~/.config/opencode/,
+    over built-in defaults): mode, refresh, open_browser, port
+
+Importable module (scripts/dashboard_server.py imports it):
+  cfg_chain(dir, key, default)   config resolution project > global > default
+  adopt_window(dir, now_ms)      in-flight run window adoption (D3)
+  collect_data(dir) -> dict      all panels' data
+  render_html(dir, data) -> str  full page (CLI and server share it)
+  state_json(data) -> dict       GET /state payload + change signature
 
 Exit 0 even on partial data (the loop must keep running). Zero deps, no CDN.
 """
@@ -24,31 +32,57 @@ import subprocess
 import sys
 import time
 
-DIR = os.path.abspath(sys.argv[1])
 DB = os.path.expanduser("~/.local/share/opencode/opencode.db")
-CFG = os.path.join(DIR, ".opencode", "team-dashboard.json")
-OUT = os.path.join(DIR, "tmp", "team-dashboard.html")
-STATE = os.path.join(DIR, "tmp", "team-dashboard-state.json")
-NOW = datetime.datetime.now().timestamp() * 1000
+GLOBAL_CFG = os.path.expanduser("~/.config/opencode/team-dashboard.json")
+ACTIVE_HORIZON_MS = 12 * 3600 * 1000  # adoption: "recently active" window
+
+AGENT_COLORS = {
+    "orchestrator": "#7c6bb0",
+    "coder": "#3f8f5f",
+    "tester": "#b45309",
+    "reviewer": "#b91c1c",
+}
+BADGES = {"orchestrator": "ORC", "coder": "COD", "tester": "TST", "reviewer": "REV"}
 
 
-def sh(cmd):
+def agent_color(a):
+    return AGENT_COLORS.get(a, "#66707c")
+
+
+def agent_badge(a):
+    b = BADGES.get(a)
+    return (
+        f'<span class=badge style="border-color:{agent_color(a)}">{b}</span>'
+        if b
+        else ""
+    )
+
+
+def sh(cmd, dir_):
     try:
         return subprocess.run(
-            cmd, shell=True, cwd=DIR, capture_output=True, text=True
+            cmd, shell=True, cwd=dir_, capture_output=True, text=True
         ).stdout
     except Exception:
         return ""
 
 
-def cfg_get(key, default):
-    try:
-        return json.load(open(CFG, encoding="utf-8")).get(key, default)
-    except Exception:
-        return default
+def cfg_chain(dir_, key, default):
+    """Per-key resolution: project .opencode/team-dashboard.json over the
+    installation-wide ~/.config/opencode/team-dashboard.json over default.
+    Unknown keys in either file are simply never looked up."""
+    for p in (os.path.join(dir_, ".opencode", "team-dashboard.json"), GLOBAL_CFG):
+        try:
+            m = json.load(open(p, encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(m, dict) and key in m:
+            return m[key]
+    return default
 
 
-REFRESH = max(2, int(cfg_get("refresh", 5) or 5))
+def state_path(dir_):
+    return os.path.join(dir_, "tmp", "team-dashboard-state.json")
 
 
 def fmt_ms(ms):
@@ -65,7 +99,7 @@ def fmt_k(n):
     return str(n)
 
 
-def load_sessions(start_ms=None):
+def load_sessions(dir_, start_ms=None):
     try:
         con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
         q = (
@@ -73,7 +107,7 @@ def load_sessions(start_ms=None):
             "tokens_input, tokens_output, tokens_reasoning "
             "FROM session WHERE directory = ?"
         )
-        args = [DIR]
+        args = [dir_]
         if start_ms:
             q += " AND time_created >= ?"
             args.append(start_ms - 60_000)
@@ -102,7 +136,7 @@ def load_sessions(start_ms=None):
     return out
 
 
-def load_parts(session_ids):
+def load_parts(session_ids, sessions):
     """Recent text parts (work log) and errored tool parts (names)."""
     if not session_ids:
         return [], {}
@@ -126,7 +160,7 @@ def load_parts(session_ids):
         if d.get("type") == "text":
             txt = (d.get("text") or "").strip()
             if len(txt) > 40:
-                agent = next((s["agent"] for s in SESSIONS if s["id"] == sid), "?")
+                agent = next((s["agent"] for s in sessions if s["id"] == sid), "?")
                 texts.append((t, agent, txt))
         st = d.get("state") or {}
         if isinstance(st, dict) and st.get("status") == "error":
@@ -136,7 +170,7 @@ def load_parts(session_ids):
     return texts[:40], err_tools
 
 
-def load_tasks(start_ms=None):
+def load_tasks(dir_, start_ms=None):
     """Checkbox tasks within the run window.
 
     Active changes always count. Archived changes count only when their
@@ -147,7 +181,6 @@ def load_tasks(start_ms=None):
         """Items: ("h", title) sections and ("t", done, depth, title) tasks;
         depth derived from bullet indentation."""
         out = []
-        section = ""
         for raw in open(path, encoding="utf-8", errors="ignore"):
             if re.match(r"^## ", raw):
                 out.append(("h", raw.lstrip("# ").strip()[:60]))
@@ -163,12 +196,12 @@ def load_tasks(start_ms=None):
 
     changes = []
     for path in sorted(
-        glob.glob(os.path.join(DIR, "openspec", "changes", "*", "tasks.md"))
+        glob.glob(os.path.join(dir_, "openspec", "changes", "*", "tasks.md"))
     ):
         name = os.path.basename(os.path.dirname(path))
         changes.append((name, entries(path)))
     for path in sorted(
-        glob.glob(os.path.join(DIR, "openspec", "changes", "archive", "*", "tasks.md"))
+        glob.glob(os.path.join(dir_, "openspec", "changes", "archive", "*", "tasks.md"))
     ):
         name = os.path.basename(os.path.dirname(path))
         dm = re.match(r"(\d{4}-\d{2}-\d{2})-", name)
@@ -183,9 +216,9 @@ def load_tasks(start_ms=None):
     return done, total, changes
 
 
-def load_commits(start_ms, have_state):
+def load_commits(dir_, start_ms, have_state):
     # %x01 = SOH separator: immune to spaces/pipes in messages
-    out = sh("git log --reverse --format=%at%x01%s")
+    out = sh("git log --reverse --format=%at%x01%s", dir_)
     pts, msgs = [], []
     for line in out.split("\n"):
         if "\x01" not in line:
@@ -199,7 +232,7 @@ def load_commits(start_ms, have_state):
     return pts, msgs
 
 
-def activity_chart(sessions, commits_t, commits_m, start_ms):
+def activity_chart(sessions, commits_t, commits_m, start_ms, now_ms):
     """Swimlane activity timeline.
 
     X axis: wall clock anchored at the run start — ticks sit at start + k*step
@@ -221,7 +254,7 @@ def activity_chart(sessions, commits_t, commits_m, start_ms):
     top_axis = 22
     height = top_axis + (len(agents_present) + 1) * lane_h + 10
 
-    elapsed = max((NOW - start_ms) / 60000, 1.0)
+    elapsed = max((now_ms - start_ms) / 60000, 1.0)
     if elapsed <= 10:
         step = 2
     elif elapsed <= 30:
@@ -309,44 +342,41 @@ def activity_chart(sessions, commits_t, commits_m, start_ms):
 CODE_EXT = re.compile(r"\.(go|py|ts|tsx|js|jsx|rs|java|rb|php|c|cc|cpp|h|hpp|sh)$")
 
 
-def project_loc():
+def project_loc(dir_):
     """Lines of code over tracked files (code extensions only).
     Counted in Python: no shell, no quoting, no wc total-line double-count."""
     files = [
         f
-        for f in sh("git ls-files").split("\n")
+        for f in sh("git ls-files", dir_).split("\n")
         if f and CODE_EXT.search(f) and not f.startswith("vendor/")
     ]
     total = 0
     for f in files:
         try:
-            with open(os.path.join(DIR, f), encoding="utf-8", errors="ignore") as fh:
+            with open(os.path.join(dir_, f), encoding="utf-8", errors="ignore") as fh:
                 total += len(fh.read().splitlines())
         except OSError:
             continue
     return total
-    return total
 
 
-COV_CACHE = os.path.join(DIR, "tmp", "team-dashboard-coverage.json")
-
-
-def test_coverage():
+def test_coverage(dir_):
     """Mean per-package go test coverage. OPT-IN: coverage_ttl (seconds,
     default 0 = off — running tests from a dashboard tick is heavy and can
     race the tester agent). Failures are cached too, so a broken run does
     not retry every tick."""
-    ttl = int(cfg_get("coverage_ttl", 0) or 0)
+    ttl = int(cfg_chain(dir_, "coverage_ttl", 0) or 0)
     if ttl <= 0:
         return None
     now_ms = time.time() * 1000
+    cov_cache = os.path.join(dir_, "tmp", "team-dashboard-coverage.json")
     try:
-        c = json.load(open(COV_CACHE, encoding="utf-8"))
+        c = json.load(open(cov_cache, encoding="utf-8"))
         if now_ms - c["ts"] < (c.get("ttl", ttl)) * 1000:
             return c.get("pct")
     except Exception:
         pass
-    if not os.path.exists(os.path.join(DIR, "go.mod")):
+    if not os.path.exists(os.path.join(dir_, "go.mod")):
         return None
     if not shutil.which("go"):
         return None
@@ -355,7 +385,7 @@ def test_coverage():
 
         r = sp.run(
             ["go", "test", "-count=1", "-cover", "./..."],
-            cwd=DIR,
+            cwd=dir_,
             capture_output=True,
             text=True,
             timeout=45,
@@ -366,192 +396,274 @@ def test_coverage():
         cache_ttl = ttl if pct is not None else ttl * 5
         json.dump(
             {"pct": pct, "ts": int(now_ms), "ttl": cache_ttl},
-            open(COV_CACHE, "w", encoding="utf-8"),
+            open(cov_cache, "w", encoding="utf-8"),
         )
         return pct
     except Exception:
         return None
 
 
-AGENT_COLORS = {
-    "orchestrator": "#7c6bb0",
-    "coder": "#3f8f5f",
-    "tester": "#b45309",
-    "reviewer": "#b91c1c",
-}
-BADGES = {"orchestrator": "ORC", "coder": "COD", "tester": "TST", "reviewer": "REV"}
+def adopt_window(dir_, now_ms=None):
+    """In-flight run window adoption (dashboard-serve D3).
+
+    Returns (start_ms, have_state). When the state window yields zero
+    sessions for the directory, roll the window back to the earliest
+    session still updated within ACTIVE_HORIZON_MS and persist it — a run
+    already in flight is always adopted, however monitoring started.
+    Nothing adoptable: keep the declared window (empty dashboard is honest
+    "nothing running"). No state file: archive view (all sessions)."""
+    now_ms = now_ms if now_ms is not None else time.time() * 1000
+    sp = state_path(dir_)
+    start, have = None, os.path.exists(sp)
+    if have:
+        try:
+            start = json.load(open(sp, encoding="utf-8"))["start_ms"]
+        except Exception:
+            start = None
+    if start is not None:
+        if load_sessions(dir_, start):
+            return start, True
+        earliest = None
+        try:
+            con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+            row = con.execute(
+                "SELECT MIN(time_created) FROM session "
+                "WHERE directory = ? AND time_updated >= ?",
+                (dir_, now_ms - ACTIVE_HORIZON_MS),
+            ).fetchone()
+            con.close()
+            earliest = row[0] if row else None
+        except Exception:
+            earliest = None
+        if earliest is not None and earliest < start - 60_000:
+            start = earliest
+            os.makedirs(os.path.dirname(sp), exist_ok=True)
+            json.dump({"start_ms": start}, open(sp, "w", encoding="utf-8"))
+        return start, True
+    _all = load_sessions(dir_)
+    return min((s["created"] for s in _all), default=now_ms), False
 
 
-def agent_color(a):
-    return AGENT_COLORS.get(a, "#66707c")
+def collect_data(dir_):
+    now_ms = time.time() * 1000
+    refresh = max(2, int(cfg_chain(dir_, "refresh", 5) or 5))
+    start, have_state = adopt_window(dir_, now_ms)
+    if have_state:
+        sessions = load_sessions(dir_, start)
+    else:
+        sessions = load_sessions(dir_)
+    texts, err_tools = load_parts([s["id"] for s in sessions], sessions)
+    done, total, task_changes = load_tasks(dir_, start if have_state else None)
+    commits_t, commits_m = load_commits(dir_, start, have_state)
+    elapsed = max(now_ms - start, 0)
+    porcelain = sh("git status --porcelain", dir_).strip()
+    dirty = porcelain.count("\n") + (1 if porcelain else 0)
 
+    agents = {}
+    for s in sessions:
+        a = agents.setdefault(
+            s["agent"],
+            {"n": 0, "spawns": 0, "tin": 0, "tout": 0, "model": s["model"], "last": 0},
+        )
+        a["n"] += 1
+        if s["parent"]:
+            a["spawns"] += 1
+        a["tin"] += s["tin"]
+        a["tout"] += s["tout"]
+        a["last"] = max(a["last"], s["updated"])
 
-def agent_badge(a):
-    b = BADGES.get(a)
-    return (
-        f'<span class=badge style="border-color:{agent_color(a)}">{b}</span>'
-        if b
-        else ""
+    proj_loc = project_loc(dir_)
+    coverage = test_coverage(dir_)
+    spawns = sum(d["spawns"] for a, d in agents.items() if a != "orchestrator")
+    tin = sum(s["tin"] for s in sessions)
+    tout = sum(s["tout"] for s in sessions)
+    last_act = max((s["updated"] for s in sessions), default=now_ms)
+    active = now_ms - last_act < 180_000
+    nerr = sum(err_tools.values())
+
+    # stage stepper: last orchestrator text → keywords; fallback: last active agent
+    stages = ["plan", "code", "test", "review", "done"]
+    stage = None
+    # primary signal: the most recently active SUBAGENT role (last 10 minutes) —
+    # keyword scanning of one orchestrator text misfires on phrases like
+    # "first coder, then reviewer"
+    role2stage = {
+        "planner": "plan",
+        "coder": "code",
+        "tester": "test",
+        "reviewer": "review",
+    }
+    recent_sub = [
+        (d["last"], a)
+        for a, d in agents.items()
+        if a in role2stage and now_ms - d["last"] < 600_000
+    ]
+    if recent_sub:
+        stage = role2stage[max(recent_sub)[1]]
+    orch_texts = [x for _t, a, x in texts if a == "orchestrator"]
+    last_txt = orch_texts[0].lower() if orch_texts else ""
+    for kw, st in [
+        ("archive|final gates|closing", "done"),
+    ]:
+        if stage is None and re.search(kw, last_txt):
+            stage = st
+            break
+    if stage is None:
+        by_agent = {a: d["last"] for a, d in agents.items()}
+        last_agent = max(by_agent, key=by_agent.get) if by_agent else None
+        stage = role2stage.get(last_agent, "plan")
+    stage_idx = stages.index(stage)
+    steps = []
+    for i, n in enumerate(stages):
+        cls = "step"
+        if i < stage_idx:
+            cls += " done"
+        if i == stage_idx:
+            cls += " cur"
+        steps.append(f'<span class="{cls}">{n}</span>')
+        if i < len(stages) - 1:
+            steps.append("<span class=sep></span>")
+    stepper = "".join(steps)
+
+    eta = "no ETA yet"
+    if done:
+        rate = (elapsed / 60000) / done
+        eta = f"~{round(rate * (total - done))} min left"
+
+    err_str = (
+        ", ".join(
+            f"{html.escape(str(t))}&times;{n}" for t, n in sorted(err_tools.items())
+        )
+        or "none"
     )
 
-
-# ---- data assembly ----
-HAVE_STATE = os.path.exists(STATE)
-START = None
-if HAVE_STATE:
-    try:
-        START = json.load(open(STATE))["start_ms"]
-    except Exception:
-        START = None
-if START is None:
-    _all = load_sessions()
-    START = min((s["created"] for s in _all), default=NOW)
-    SESSIONS = _all
-else:
-    SESSIONS = load_sessions(START)
-TEXTS, ERR_TOOLS = load_parts([s["id"] for s in SESSIONS])
-DONE, TOTAL, TASK_CHANGES = load_tasks(START if HAVE_STATE else None)
-COMMITS_T, COMMITS_M = load_commits(START, HAVE_STATE)
-ELAPSED = max(NOW - START, 0)
-DIRTY = sh("git status --porcelain").strip().count("\n") + (
-    1 if sh("git status --porcelain").strip() else 0
-)
-
-agents = {}
-for s in SESSIONS:
-    a = agents.setdefault(
-        s["agent"],
-        {"n": 0, "spawns": 0, "tin": 0, "tout": 0, "model": s["model"], "last": 0},
-    )
-    a["n"] += 1
-    if s["parent"]:
-        a["spawns"] += 1
-    a["tin"] += s["tin"]
-    a["tout"] += s["tout"]
-    a["last"] = max(a["last"], s["updated"])
-
-PROJ_LOC = project_loc()
-COVERAGE = test_coverage()
-SPAWNS = sum(d["spawns"] for a, d in agents.items() if a != "orchestrator")
-tin = sum(s["tin"] for s in SESSIONS)
-tout = sum(s["tout"] for s in SESSIONS)
-last_act = max((s["updated"] for s in SESSIONS), default=NOW)
-active = NOW - last_act < 180_000
-NERR = sum(ERR_TOOLS.values())
-
-# stage stepper: last orchestrator text → keywords; fallback: last active agent
-STAGES = ["plan", "code", "test", "review", "done"]
-stage = None
-# primary signal: the most recently active SUBAGENT role (last 10 minutes) —
-# keyword scanning of one orchestrator text misfires on phrases like
-# "first coder, then reviewer"
-ROLE2STAGE = {
-    "planner": "plan",
-    "coder": "code",
-    "tester": "test",
-    "reviewer": "review",
-}
-recent_sub = [
-    (d["last"], a)
-    for a, d in agents.items()
-    if a in ROLE2STAGE and NOW - d["last"] < 600_000
-]
-if recent_sub:
-    stage = ROLE2STAGE[max(recent_sub)[1]]
-orch_texts = [x for _t, a, x in TEXTS if a == "orchestrator"]
-last_txt = orch_texts[0].lower() if orch_texts else ""
-for kw, st in [
-    ("archive|final gates|closing", "done"),
-]:
-    if stage is None and re.search(kw, last_txt):
-        stage = st
-        break
-if stage is None:
-    by_agent = {a: d["last"] for a, d in agents.items()}
-    last_agent = max(by_agent, key=by_agent.get) if by_agent else None
-    stage = ROLE2STAGE.get(last_agent, "plan")
-stage_idx = STAGES.index(stage)
-steps = []
-for i, n in enumerate(STAGES):
-    cls = "step"
-    if i < stage_idx:
-        cls += " done"
-    if i == stage_idx:
-        cls += " cur"
-    steps.append(f'<span class="{cls}">{n}</span>')
-    if i < len(STAGES) - 1:
-        steps.append("<span class=sep></span>")
-stepper = "".join(steps)
-
-eta = "no ETA yet"
-if DONE:
-    rate = (ELAPSED / 60000) / DONE
-    eta = f"~{round(rate * (TOTAL - DONE))} min left"
-
-err_str = (
-    ", ".join(f"{html.escape(str(t))}&times;{n}" for t, n in sorted(ERR_TOOLS.items()))
-    or "none"
-)
-
-cards = f"""
-<div class=card><div class=v>{DONE}/{TOTAL}</div><div class=l>tasks done</div></div>
-<div class=card><div class=v>{len(COMMITS_T)}</div><div class=l>commits</div></div>
+    cards = f"""
+<div class=card><div class=v>{done}/{total}</div><div class=l>tasks done</div></div>
+<div class=card><div class=v>{len(commits_t)}</div><div class=l>commits</div></div>
 <div class=card><div class=v>{fmt_k(tin)}</div><div class=l>tokens in</div></div>
 <div class=card><div class=v>{fmt_k(tout)}</div><div class=l>tokens out</div></div>
-<div class=card><div class=v>{SPAWNS}</div><div class=l>subagent spawns</div></div>
-<div class=card><div class=v>{fmt_k(PROJ_LOC)}</div><div class=l>loc (tracked)</div></div>
-<div class=card><div class=v>{COVERAGE if COVERAGE is not None else "&mdash;"}</div><div class=l>test coverage %</div></div>
-<div class=card><div class=v>{NERR}</div><div class=l>tool errors</div></div>
-<div class=card><div class=v>{fmt_ms(ELAPSED)}</div><div class=l>elapsed &middot; {html.escape(eta)}</div></div>
+<div class=card><div class=v>{spawns}</div><div class=l>subagent spawns</div></div>
+<div class=card><div class=v>{fmt_k(proj_loc)}</div><div class=l>loc (tracked)</div></div>
+<div class=card><div class=v>{coverage if coverage is not None else "&mdash;"}</div><div class=l>test coverage %</div></div>
+<div class=card><div class=v>{nerr}</div><div class=l>tool errors</div></div>
+<div class=card><div class=v>{fmt_ms(elapsed)}</div><div class=l>elapsed &middot; {html.escape(eta)}</div></div>
 """
 
-agent_rows = "".join(
-    f'<tr><td><b style="color:{agent_color(a)}">{html.escape(a)}</b> {agent_badge(a)}</td>'
-    f"<td class=num>{d['n']}</td><td class=num>{d['spawns']}</td>"
-    f"<td>{html.escape(d['model'])}</td><td class=num>{fmt_k(d['tin'])}</td>"
-    f"<td class=num>{fmt_k(d['tout'])}</td>"
-    f"<td class=num>{fmt_ms(max(NOW - d['last'], 0))} ago</td>"
-    f"<td>{'<span class=live>active</span>' if NOW - d['last'] < 180_000 else 'idle'}</td></tr>"
-    for a, d in sorted(agents.items())
-)
+    agent_rows = "".join(
+        f'<tr><td><b style="color:{agent_color(a)}">{html.escape(a)}</b> {agent_badge(a)}</td>'
+        f"<td class=num>{d['n']}</td><td class=num>{d['spawns']}</td>"
+        f"<td>{html.escape(d['model'])}</td><td class=num>{fmt_k(d['tin'])}</td>"
+        f"<td class=num>{fmt_k(d['tout'])}</td>"
+        f"<td class=num>{fmt_ms(max(now_ms - d['last'], 0))} ago</td>"
+        f"<td>{'<span class=live>active</span>' if now_ms - d['last'] < 180_000 else 'idle'}</td></tr>"
+        for a, d in sorted(agents.items())
+    )
 
-pct = round(100 * DONE / TOTAL) if TOTAL else 0
-task_html = ""
-for name, es in TASK_CHANGES:
-    d_n = sum(1 for it in es if it[0] == "t" and it[1])
-    t_n = sum(1 for it in es if it[0] == "t")
-    task_html += f"<div class=tch>{html.escape(name)} — {d_n}/{t_n}</div>"
-    for it in es:
-        if it[0] == "h":
-            task_html += f"<div class=tw>{html.escape(it[1])}</div>"
-            continue
-        _, d, depth, title = it
-        cls = "tdone" if d else "ttodo"
-        mark = "&#10003;" if d else "&#9744;"
-        task_html += (
-            f'<div class="{cls}" style="padding-left:{6 + depth * 18}px">'
-            f"{mark} {html.escape(title)}</div>"
-        )
-    task_html += "<div style='height:6px'></div>"
+    pct = round(100 * done / total) if total else 0
+    task_html = ""
+    for name, es in task_changes:
+        d_n = sum(1 for it in es if it[0] == "t" and it[1])
+        t_n = sum(1 for it in es if it[0] == "t")
+        task_html += f"<div class=tch>{html.escape(name)} — {d_n}/{t_n}</div>"
+        for it in es:
+            if it[0] == "h":
+                task_html += f"<div class=tw>{html.escape(it[1])}</div>"
+                continue
+            _, d, depth, title = it
+            cls = "tdone" if d else "ttodo"
+            mark = "&#10003;" if d else "&#9744;"
+            task_html += (
+                f'<div class="{cls}" style="padding-left:{6 + depth * 18}px">'
+                f"{mark} {html.escape(title)}</div>"
+            )
+        task_html += "<div style='height:6px'></div>"
 
-log_html = "".join(
-    f"<div class=ev><span class=t>{datetime.datetime.fromtimestamp(t / 1000).strftime('%H:%M:%S')}</span>"
-    f'<span class="ag" style="color:{agent_color(a)}">{html.escape(a)}{agent_badge(a)}</span>'
-    f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(x)}</span></div>"
-    for t, a, x in TEXTS
-)
+    log_html = "".join(
+        f"<div class=ev><span class=t>{datetime.datetime.fromtimestamp(t / 1000).strftime('%H:%M:%S')}</span>"
+        f'<span class="ag" style="color:{agent_color(a)}">{html.escape(a)}{agent_badge(a)}</span>'
+        f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(x)}</span></div>"
+        for t, a, x in texts
+    )
 
-commit_entries = [
-    f"<div class=ev><span class=t>+{p:.0f}m</span>"
-    f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(m)}</span></div>"
-    for p, m in zip(reversed(COMMITS_T), reversed(COMMITS_M))
-]
-commits_list = "".join(commit_entries[:40]) or "<div class=muted>none yet</div>"
+    commit_entries = [
+        f"<div class=ev><span class=t>+{p:.0f}m</span>"
+        f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(m)}</span></div>"
+        for p, m in zip(reversed(commits_t), reversed(commits_m))
+    ]
+    commits_list = "".join(commit_entries[:40]) or "<div class=muted>none yet</div>"
 
-state_html = "&#9679; live" if active else "&#9675; idle"
-page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+    return {
+        "dir": dir_,
+        "now_ms": now_ms,
+        "refresh": refresh,
+        "start": start,
+        "have_state": have_state,
+        "sessions": sessions,
+        "done": done,
+        "total": total,
+        "commits_t": commits_t,
+        "commits_m": commits_m,
+        "elapsed": elapsed,
+        "dirty": dirty,
+        "agents": agents,
+        "proj_loc": proj_loc,
+        "coverage": coverage,
+        "spawns": spawns,
+        "tin": tin,
+        "tout": tout,
+        "last_act": last_act,
+        "active": active,
+        "nerr": nerr,
+        "stage": stage,
+        "stepper": stepper,
+        "eta": eta,
+        "err_str": err_str,
+        "cards": cards,
+        "agent_rows": agent_rows,
+        "pct": pct,
+        "task_html": task_html,
+        "log_html": log_html,
+        "commits_list": commits_list,
+    }
+
+
+def state_sig(d):
+    """Cheap change signature: poller compares this before reloading."""
+    return (
+        f"{len(d['sessions'])}:{d['done']}/{d['total']}:"
+        f"{len(d['commits_t'])}:{int(d['last_act'])}"
+    )
+
+
+def state_json(d):
+    """GET /state payload — the poller's data view of the dashboard."""
+    return {
+        "generated_ms": int(time.time() * 1000),
+        "project": os.path.basename(d["dir"]),
+        "active": d["active"],
+        "stage": d["stage"],
+        "sessions": len(d["sessions"]),
+        "tasks_done": d["done"],
+        "tasks_total": d["total"],
+        "commits": len(d["commits_t"]),
+        "run_start_ms": d["start"],
+        "sig": state_sig(d),
+    }
+
+
+def render_html(dir_, d):
+    DONE, TOTAL = d["done"], d["total"]
+    SESSIONS, COMMITS_T = d["sessions"], d["commits_t"]
+    START, NOW, REFRESH = d["start"], d["now_ms"], d["refresh"]
+    DIRTY, last_act, err_str = d["dirty"], d["last_act"], d["err_str"]
+    cards, stepper, pct = d["cards"], d["stepper"], d["pct"]
+    agent_rows = d["agent_rows"]
+    task_html, log_html, commits_list = d["task_html"], d["log_html"], d["commits_list"]
+    active = d["active"]
+    state_html = "&#9679; live" if active else "&#9675; idle"
+    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{state_html} {DONE}/{TOTAL} — team dashboard — {html.escape(os.path.basename(DIR))}</title>
+<title>{state_html} {DONE}/{TOTAL} — team dashboard — {html.escape(os.path.basename(dir_))}</title>
 <style>
  :root{{--bg:#f4f5f7;--fg:#1a1d21;--panel:#fff;--border:#dde1e6;--grid:#eef0f2;--muted:#66707c;--acc:#3f8f5f}}
  @media (prefers-color-scheme: dark){{:root{{--bg:#16181c;--fg:#e6e8eb;--panel:#1e2126;--border:#33373d;--grid:#2a2e34;--muted:#9aa4af;--acc:#4caf76}}}}
@@ -599,19 +711,19 @@ page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
   padding:6px 10px;border-radius:6px;font-family:ui-monospace,monospace;font-size:11px;
   z-index:9;pointer-events:none;white-space:normal;line-height:1.45;box-shadow:0 2px 8px rgba(0,0,0,.25)}}
 </style></head><body>
-<div class=head><h1>team dashboard — {html.escape(os.path.basename(DIR))}
+<div class=head><h1>team dashboard — {html.escape(os.path.basename(dir_))}
  <span class="{("live" if active else "muted")}">{state_html}</span></h1>
 <div style="display:flex;gap:8px">
  <button onclick="location.reload()">refresh</button>
  <button id=pause onclick="togglePause()">pause</button>
 </div></div>
-<div class=meta>project: <code>{html.escape(DIR)}</code> &middot; run start {datetime.datetime.fromtimestamp(START / 1000).strftime("%H:%M:%S")}
+<div class=meta>project: <code>{html.escape(dir_)}</code> &middot; run start {datetime.datetime.fromtimestamp(START / 1000).strftime("%H:%M:%S")}
  &middot; refreshed {datetime.datetime.now().strftime("%H:%M:%S")} ({REFRESH}s) &middot; dirty files: {DIRTY}
  &middot; last activity {fmt_ms(max(NOW - last_act, 0))} ago &middot; tool errors: {err_str}</div>
 <div class=cards>{cards}</div>
 <div class=bar><div></div><span class=barlab>{pct}%</span></div>
 <div class=stepper><span class=muted style="margin-right:8px">run stage:</span>{stepper}</div>
-<div class=panel><h2>Activity — sessions &amp; commits (wall clock)</h2>{activity_chart(SESSIONS, COMMITS_T, COMMITS_M, START)}</div>
+<div class=panel><h2>Activity — sessions &amp; commits (wall clock)</h2>{activity_chart(SESSIONS, COMMITS_T, d["commits_m"], START, NOW)}</div>
 <div class=panel><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawned</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
 <div class=row2>
  <div class=panel><h2>Tasks ({DONE}/{TOTAL})</h2>{task_html or "<div class=muted>no openspec tasks found</div>"}</div>
@@ -642,8 +754,34 @@ const sGet = k => {{ try {{ return sessionStorage.getItem(k); }} catch (e) {{ re
 const sSet = (k, v) => {{ try {{ sessionStorage.setItem(k, v); }} catch (e) {{}} }};
 const sDel = k => {{ try {{ sessionStorage.removeItem(k); }} catch (e) {{}} }};
 let tmr = null;
-if (sGet('dash-pause') !== '1') {{
-  tmr = setTimeout(() => location.reload(), R);
+const SIG = {json.dumps(state_sig(d))};
+// live page (design dashboard-serve D1): poll /state, repaint only when the
+// data signature changed; on fetch failure show a stopped-banner instead of
+// quietly looking alive. file:// keeps the legacy reload (file mode: `once`).
+async function poll() {{
+  try {{
+    const r = await fetch('/state');
+    if (!r.ok) throw 0;
+    const s = await r.json();
+    const b = document.getElementById('srvdead');
+    if (b) b.remove();
+    if (s.sig !== SIG) location.reload();
+  }} catch (e) {{
+    if (!document.getElementById('srvdead')) {{
+      const b = document.createElement('div');
+      b.id = 'srvdead';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:6px;' +
+        'background:#b91c1c;color:#fff;font:600 12px ui-monospace,monospace;' +
+        'text-align:center;z-index:99';
+      b.textContent = 'dashboard server stopped — final snapshot: tmp/team-dashboard.html';
+      document.body.appendChild(b);
+    }}
+  }}
+}}
+if (location.protocol === 'file:') {{
+  if (sGet('dash-pause') !== '1') tmr = setTimeout(() => location.reload(), R);
+}} else if (sGet('dash-pause') !== '1') {{
+  tmr = setInterval(poll, R);
 }}
 addEventListener('scroll', () => sSet('dash-y', String(scrollY)), {{passive: true}});
 // per-feed scroll: each .feed remembers its own position by index
@@ -656,7 +794,7 @@ function togglePause() {{
   const p = sGet('dash-pause') === '1';
   if (p) {{ sDel('dash-pause'); location.reload(); }}
   else {{ sSet('dash-pause', '1');
-         if (tmr) {{ clearTimeout(tmr); tmr = null; }}  // cancel the pending reload
+         if (tmr) {{ clearInterval(tmr); tmr = null; }}  // cancel the pending poll/reload
          document.getElementById('pause').textContent = 'resume'; }}
 }}
 if (sGet('dash-pause') === '1') {{
@@ -664,13 +802,32 @@ if (sGet('dash-pause') === '1') {{
 }}
 </script>
 </body></html>"""
+    return page
 
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
-tmp = OUT + ".tmp"
-with open(tmp, "w", encoding="utf-8") as f:
-    f.write(page)
-os.replace(tmp, OUT)  # atomic: readers never see a half-written file
-print(
-    f"{datetime.datetime.now().strftime('%H:%M:%S')}: {OUT} ({len(page)} b, "
-    f"{len(SESSIONS)} sessions, {DONE}/{TOTAL} tasks, {len(COMMITS_T)} commits)"
-)
+
+def main(argv):
+    if len(argv) >= 4 and argv[1] == "--cfg":
+        # shell helper: print one resolved config key for a project dir
+        defaults = {"mode": "ask", "open_browser": True, "refresh": 5, "port": 4731}
+        key, dir_ = argv[2], os.path.abspath(argv[3])
+        print(cfg_chain(dir_, key, defaults.get(key)))
+        return 0
+    dir_ = os.path.abspath(argv[1])
+    d = collect_data(dir_)
+    out = os.path.join(dir_, "tmp", "team-dashboard.html")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    page = render_html(dir_, d)
+    tmp = out + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(page)
+    os.replace(tmp, out)  # atomic: readers never see a half-written file
+    print(
+        f"{datetime.datetime.now().strftime('%H:%M:%S')}: {out} ({len(page)} b, "
+        f"{len(d['sessions'])} sessions, {d['done']}/{d['total']} tasks, "
+        f"{len(d['commits_t'])} commits)"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

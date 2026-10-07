@@ -320,6 +320,7 @@ def main():
     import ast
 
     ast.parse(open("scripts/gen-team-dashboard.py", encoding="utf-8").read())
+    ast.parse(open("scripts/dashboard_server.py", encoding="utf-8").read())
     dash = json.load(open("examples/team-dashboard.json", encoding="utf-8"))
     if dash.get("mode") not in ("ask", "always", "never"):
         err("examples/team-dashboard.json: mode must be ask|always|never")
@@ -330,11 +331,25 @@ def main():
             "examples/team-dashboard.json: coverage_ttl must be declared "
             "(0 = off, default) — undocumented keys drift back (E-3)"
         )
+    if "port" not in dash:
+        err(
+            "examples/team-dashboard.json: port must be declared "
+            "(fixed serve port; conflict fails loudly)"
+        )
+    elif not isinstance(dash.get("port"), int) or not (1024 <= dash["port"] <= 65535):
+        err("examples/team-dashboard.json: port must be int in 1024..65535")
     r = subprocess.run(
         [sys.executable, "scripts/test-dashboard.py"], capture_output=True, text=True
     )
     if r.returncode != 0:
         err("dashboard behavioral test failed:\n" + r.stdout[-800:])
+    r = subprocess.run(
+        [sys.executable, "scripts/test-dashboard-adoption.py"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        err("dashboard adoption/config-chain test failed:\n" + r.stdout[-800:])
     r = subprocess.run(
         [sys.executable, "scripts/test-integrate-plugins.py"],
         capture_output=True,
@@ -344,6 +359,7 @@ def main():
         err("integrate-plugins behavioral test failed:\n" + r.stdout[-800:])
     for sh in (
         "install.sh",
+        "bin/team-dash",
         "examples/judge.sh",
         "scripts/check-model-routing.sh",
         "scripts/sync-skills.sh",

@@ -1,7 +1,8 @@
 {
-  "$comment": "Copy to <project>/.opencode/team-dashboard.json (optional). mode: ask = the team asks once per run when a user is present (headless runs skip silently); always = start every run; never = off. refresh: seconds between regenerations; open_browser: open the dashboard in the default browser on start; coverage_ttl: seconds to cache a go-test coverage run (0 = off, default — a dashboard tick must not run tests / race the tester agent; failures cache at 5x ttl).",
+  "$comment": "Copy to <project>/.opencode/team-dashboard.json (optional). Resolution per key: this file over ~/.config/opencode/team-dashboard.json (installation defaults) over built-ins. mode: ask = the team asks once per run when a user is present (headless runs skip silently); always = start every run, works under --auto (no question needed); never = off. refresh: seconds between regenerations; open_browser: open the dashboard on start; port: FIXED localhost port for serve mode (default 4731; already-occupied = hard error naming the holder, never silent re-allocation); coverage_ttl: seconds to cache a go-test coverage run (0 = off, default — a dashboard tick must not run tests / race the tester agent; failures cache at 5x ttl).",
   "mode": "ask",
   "refresh": 5,
   "open_browser": true,
+  "port": 4731,
   "coverage_ttl": 0
 }

@@ -31,13 +31,31 @@ for agent in orchestrator planner coder tester reviewer; do
   echo "  ✓ ${agent}.md"
 done
 
-# Install dashboard scripts (live run dashboard)
+# Install dashboard scripts (live run dashboard + localhost server)
 mkdir -p "${DASH_DIR}"
 cp "${SCRIPT_DIR}/scripts/gen-team-dashboard.py" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/team-dashboard.sh" "${DASH_DIR}/"
+cp "${SCRIPT_DIR}/scripts/dashboard_server.py" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/gen-run-brief.py" "${DASH_DIR}/"
 chmod +x "${DASH_DIR}/team-dashboard.sh"
-echo "  ✓ dashboard + brief-generator scripts (${DASH_DIR})"
+echo "  ✓ dashboard (serve mode + generator + brief) scripts (${DASH_DIR})"
+
+# Launcher on PATH: team-dash (no-argument run detection -> serve)
+BIN_DIR="${TARGET}/.opencode/bin"
+if [ $GLOBAL = 1 ]; then
+  BIN_DIR="${TARGET}/bin"
+fi
+mkdir -p "${BIN_DIR}"
+cp "${SCRIPT_DIR}/bin/team-dash" "${BIN_DIR}/team-dash"
+chmod +x "${BIN_DIR}/team-dash"
+echo "  ✓ team-dash launcher (${BIN_DIR})"
+
+# Installation-wide dashboard defaults (never overwrite an existing file)
+if [ $GLOBAL = 1 ] && [ ! -f "${TARGET}/team-dashboard.json" ]; then
+  printf '{\n  "mode": "ask",\n  "refresh": 5,\n  "open_browser": true,\n  "port": 4731\n}\n' \
+    > "${TARGET}/team-dashboard.json"
+  echo "  ✓ installation dashboard defaults (${TARGET}/team-dashboard.json)"
+fi
 
 # Install commands (/team, /team-change, ...)
 for cmd in "${SCRIPT_DIR}"/commands/*.md; do

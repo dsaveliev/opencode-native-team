@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# team-dash [project-dir] — open the live team dashboard.
+# No arguments: pick the most recently updated run from the session DB
+# (read-only, 12h horizon); several candidates -> numbered choice; the
+# chosen project's dashboard server starts (or is reused) and adopts the
+# in-flight window. Never communicates with the running session itself —
+# safe at any point of a run.
+set -u
+DB="$HOME/.local/share/opencode/opencode.db"
+
+if [ $# -ge 1 ]; then
+  DIR="$1"
+else
+  rows="$(python3 - "$DB" << 'PYEOF'
+import sqlite3, sys, time
+try:
+    con = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+    rows = con.execute(
+        "SELECT directory, MAX(time_updated) FROM session "
+        "WHERE time_updated >= ? AND directory IS NOT NULL "
+        "GROUP BY directory ORDER BY 2 DESC LIMIT 5",
+        (time.time() * 1000 - 12 * 3600 * 1000,),
+    ).fetchall()
+except Exception:
+    rows = []
+for d, t in rows:
+    print(f"{d}\t{t}")
+PYEOF
+)"
+  count="$(printf '%s\n' "$rows" | grep -c .)"
+  if [ "$count" -eq 0 ]; then
+    echo "team-dash: no recently-active opencode runs found (12h horizon)" >&2
+    exit 1
+  fi
+  if [ "$count" -eq 1 ]; then
+    DIR="$(printf '%s\n' "$rows" | cut -f1)"
+    echo "team-dash: active run -> $DIR" >&2
+  else
+    echo "recently-active runs:" >&2
+    i=0
+    while IFS=$'\t' read -r d t; do
+      i=$((i + 1))
+      when="$(date -r $((t / 1000)) '+%H:%M' 2>/dev/null || echo '?')"
+      printf '  %d) %s  (updated %s)\n' "$i" "$d" "$when" >&2
+    done <<< "$rows"
+    printf 'pick [1]: ' >&2
+    read -r n < /dev/tty
+    n="${n:-1}"
+    DIR="$(printf '%s\n' "$rows" | sed -n "${n}p" | cut -f1)"
+  fi
+fi
+
+DIR="$(cd "$DIR" 2>/dev/null && pwd)" || { echo "team-dash: no such dir: $DIR" >&2; exit 1; }
+
+for s in "$DIR/.opencode/scripts/team-dashboard.sh" "$HOME/.config/opencode/scripts/team-dashboard.sh"; do
+  if [ -f "$s" ]; then
+    exec bash "$s" serve "$DIR"
+  fi
+done
+echo "team-dash: team-dashboard.sh not found (project-local or global install)" >&2
+exit 1

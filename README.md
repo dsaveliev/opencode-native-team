@@ -197,19 +197,33 @@ An `opencode.json.example` with Go presets is installed by `install.sh`.
 ## Live Dashboard
 
 Every run can carry a live dashboard: agents spawned, task progress, work
-log, commit timeline, token usage, ETA — regenerated from the session DB +
-git + openspec tasks every few seconds, zero dependencies.
+log, commit timeline, token usage, ETA — served over localhost from the
+session DB + git + openspec tasks, zero dependencies.
 
-- Config `<project>/.opencode/team-dashboard.json` (see
+- Served at `http://127.0.0.1:<port>/` (fixed port, default 4731; binds
+  127.0.0.1 only). The page polls `/state` and repaints itself on data
+  change — no manual reload; if the server dies, the page shows a stopped
+  banner instead of quietly going stale. `POST` is reserved for a future
+  control layer.
+- Observation windows adopt in-flight runs: start monitoring at any moment
+  and the window rolls back to the run's earliest still-active session —
+  the "empty dashboard started too late" failure mode cannot happen.
+- Config resolves per key: project `.opencode/team-dashboard.json` over
+  installation `~/.config/opencode/team-dashboard.json` (see
   `examples/team-dashboard.json`): `mode` = `ask` (default — the team asks
   once per run via the question tool; headless runs skip silently) |
-  `always` | `never`, plus `refresh` seconds and `open_browser`.
-- `install.sh` drops the scripts into `.opencode/scripts/` (global install:
-  `~/.config/opencode/scripts/`); the `/team` and `/team-change` commands
-  start/stop the dashboard automatically, resolving the script project-local
-  first, then the global copy.
-- Manual: `.opencode/scripts/team-dashboard.sh start|stop|once|status <dir>`;
-  after stop the final HTML stays in `tmp/team-dashboard.html`.
+  `always` (starts every run, including `--auto`) | `never`, plus
+  `refresh` seconds, `open_browser`, `port`.
+- Launch channels: `/team` and `/team-change` start/stop the dashboard
+  automatically per mode (script resolved project-local first, then the
+  global copy). Out-of-band: `team-dash` (installed onto PATH by
+  `install.sh`) takes no arguments from any terminal — it finds the most
+  recently active run and never touches the session itself, so it is safe
+  mid-run. Manual: `.opencode/scripts/team-dashboard.sh
+  serve|stop|once|status <dir>`.
+- Port already occupied = hard error naming the holding PID (set `port`
+  per project to run two dashboards side by side). After `stop` the final
+  HTML stays at `tmp/team-dashboard.html`.
 - Panels: cards, run-stage stepper, activity swimlanes (per-agent session
   bars + commit markers on a stable wall-clock axis), agents table with
   spawn counts, task tree, work log and commit list (click to expand,

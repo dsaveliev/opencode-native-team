@@ -1,101 +1,109 @@
 #!/usr/bin/env bash
-# team-dashboard.sh start|stop|once|status <project-dir> [--resume]
-# start : begin a NEW run window (resets state) and launch the refresh loop
-#         --resume : keep the existing state (mid-run dashboard restart)
-# stop  : kill the loop (state + final HTML are kept for review)
-# once  : single generation pass
-# status: report loop state
-# Config: <project>/.opencode/team-dashboard.json
-#   {"mode": "ask"|"always"|"never", "refresh": 5, "open_browser": true}
+# team-dashboard.sh serve|stop|once|status <project-dir> [--resume]
+# serve : start the localhost web dashboard (alias: start). Fixed port from
+#         config; window adoption is automatic (an in-flight run is always
+#         picked up, so --resume is accepted but unnecessary).
+# stop  : kill the server; the final snapshot stays at tmp/team-dashboard.html
+# once  : single file generation (debug / file mode)
+# status: server state + URL
+# Config per key: <project>/.opencode/team-dashboard.json over
+#   ~/.config/opencode/team-dashboard.json (mode, refresh, open_browser, port)
 set -u
 
-CMD="${1:?usage: team-dashboard.sh start|stop|once|status <project-dir> [--resume]}"
-DIR="${2:?usage: team-dashboard.sh start|stop|once|status <project-dir> [--resume]}"
-RESUME="${3:-}"
+CMD="${1:?usage: team-dashboard.sh serve|stop|once|status <project-dir> [--resume]}"
+[ "$CMD" = "start" ] && CMD="serve"
+DIR="${2:?usage: team-dashboard.sh serve|stop|once|status <project-dir> [--resume]}"
 DIR="$(cd "$DIR" 2>/dev/null && pwd)" || { echo "no such dir: $2"; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GEN="$SCRIPT_DIR/gen-team-dashboard.py"
+SRV="$SCRIPT_DIR/dashboard_server.py"
 TMP="$DIR/tmp"
 PIDFILE="$TMP/team-dashboard.pid"
-STATE="$TMP/team-dashboard-state.json"
+LOG="$TMP/team-dashboard-server.log"
 
 mkdir -p "$TMP"
 
 cfgget() {
-  python3 - "$DIR/.opencode/team-dashboard.json" "$1" "$2" << 'PYEOF'
-import json, os, sys
-cfg, key, default = sys.argv[1], sys.argv[2], sys.argv[3]
-try:
-    print(str(json.load(open(cfg)).get(key, default)).lower())
-except Exception:
-    print(str(default).lower())
-PYEOF
+  python3 "$GEN" --cfg "$1" "$DIR"
 }
 
-REFRESH="$(cfgget refresh 5)"
-REFRESH="${REFRESH%%.*}"
-[ "$REFRESH" -ge 2 ] 2>/dev/null || REFRESH=5
-OPEN_URL="$(cfgget open_browser true)"
+PORT="$(cfgget port)"
+URL="http://127.0.0.1:${PORT}/"
 
 running() {
-  # pid alive AND it is our loop (never kill a recycled pid)
+  # pid alive AND it is our server (never kill a recycled pid)
   [ -f "$PIDFILE" ] || return 1
   local pid
   pid="$(cat "$PIDFILE")"
   kill -0 "$pid" 2>/dev/null || return 1
-  ps -p "$pid" -o command= 2>/dev/null | grep -q "gen-team-dashboard" || return 1
+  ps -p "$pid" -o command= 2>/dev/null | grep -q "dashboard_server" || return 1
 }
 
 open_browser() {
-  [ "$OPEN_URL" = "true" ] || return 0
-  command -v open >/dev/null 2>&1 && open "$TMP/team-dashboard.html" && return 0
-  command -v xdg-open >/dev/null 2>&1 && xdg-open "$TMP/team-dashboard.html"
+  [ "$(cfgget open_browser | tr 'A-Z' 'a-z')" = "true" ] || return 0
+  command -v open >/dev/null 2>&1 && open "$URL" && return 0
+  command -v xdg-open >/dev/null 2>&1 && xdg-open "$URL"
+}
+
+wait_port() {
+  # up to ~6s for the server to answer (or die with a conflict message)
+  python3 - "$PORT" << 'PYEOF'
+import socket, sys, time
+port = int(sys.argv[1])
+deadline = time.time() + 6
+while time.time() < deadline:
+    try:
+        s = socket.create_connection(("127.0.0.1", port), timeout=0.5)
+        s.close()
+        sys.exit(0)
+    except OSError:
+        time.sleep(0.25)
+sys.exit(1)
+PYEOF
 }
 
 case "$CMD" in
   once)
     exec python3 "$GEN" "$DIR"
     ;;
-  start)
+  serve)
     if running; then
-      echo "dashboard already running (pid $(cat "$PIDFILE"))"
+      echo "dashboard already running (pid $(cat "$PIDFILE")): $URL"
+      open_browser
       exit 0
     fi
-    if [ "$RESUME" != "--resume" ] || [ ! -f "$STATE" ]; then
-      python3 - "$STATE" << 'PYEOF'
-import json, sys, time
-json.dump({"start_ms": int(time.time() * 1000)}, open(sys.argv[1], "w"))
-PYEOF
-    fi
-    # loop args passed positionally: no project path is interpolated into
-    # the script body (apostrophes / ';' in paths are safe)
-    nohup bash -c 'while :; do python3 "$1" "$2" >/dev/null 2>&1 || true; sleep "$3"; done' \
-      dash-loop "$GEN" "$DIR" "$REFRESH" >/dev/null 2>&1 &
+    nohup python3 "$SRV" "$DIR" >"$LOG" 2>&1 &
     echo $! > "$PIDFILE"
-    python3 "$GEN" "$DIR" >/dev/null 2>&1 || true
-    open_browser
-    echo "dashboard: $TMP/team-dashboard.html (refresh ${REFRESH}s, pid $(cat "$PIDFILE"))"
+    if wait_port; then
+      echo "dashboard: $URL (pid $(cat "$PIDFILE"))"
+    else
+      echo "dashboard failed to start; log tail:" >&2
+      tail -5 "$LOG" >&2
+      rm -f "$PIDFILE"
+      exit 1
+    fi
     ;;
   stop)
     if running; then
-      kill "$(cat "$PIDFILE")" 2>/dev/null
-      rm -f "$PIDFILE"
-      python3 "$GEN" "$DIR" >/dev/null 2>&1 || true
-      echo "dashboard stopped; final view kept at $TMP/team-dashboard.html"
-    else
-      echo "dashboard not running"
+      pid="$(cat "$PIDFILE")"
+      kill "$pid" 2>/dev/null || true
+      echo "dashboard server stopped (pid $pid)"
     fi
+    rm -f "$PIDFILE"
+    # final snapshot of the last render for after-the-fact review
+    python3 "$GEN" "$DIR" >/dev/null 2>&1 || true
+    echo "final snapshot: $TMP/team-dashboard.html"
     ;;
   status)
     if running; then
-      echo "running (pid $(cat "$PIDFILE"), refresh ${REFRESH}s)"
+      echo "running: $URL (pid $(cat "$PIDFILE"))"
     else
-      echo "not running"
+      echo "stopped; snapshot (if any): $TMP/team-dashboard.html"
     fi
     ;;
   *)
-    echo "unknown command: $CMD" >&2
+    echo "usage: team-dashboard.sh serve|stop|once|status <project-dir> [--resume]" >&2
     exit 1
     ;;
 esac
