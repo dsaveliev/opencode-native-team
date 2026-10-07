@@ -36,14 +36,13 @@ CJK = re.compile(
     r"\uac00-\ud7af\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef"
     r"\U00020000-\U0003ffff]"
 )
-RU_ALLOWED = ["examples/TASK.ru.md", "docs/review-*.md", "docs/audit-*.md"]
+RU_ALLOWED = []  # repo is English-only; historical Russian docs live in git history
 # paths that docs may name; anything matching must exist on disk.
 # Only repo-tree dirs; bare filenames and .opencode/* are target-project files.
 DOC_PATH = re.compile(
     r"`((?:docs|agents|examples|scripts|commands|vendor|artifacts|results|"
     r"\.github|openspec)/[A-Za-z0-9_./-]+|install\.sh)`"
 )
-SHA = re.compile(r"\b[0-9a-f]{7,40}\b")
 errors = []
 
 
@@ -97,30 +96,6 @@ def parse_frontmatter(text, where):
 
 def ru_allowed(path):
     return any(fnmatch.fnmatch(path, pat) for pat in RU_ALLOWED)
-
-
-def git_shas():
-    """Short SHAs of full history; on a shallow clone the caller reports
-    a clear fix instead of per-file false failures."""
-    shallow = (
-        subprocess.run(
-            ["git", "rev-parse", "--is-shallow-repository"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-        == "true"
-    )
-    if shallow:
-        err(
-            "shallow clone: review subject commits cannot resolve — "
-            "run 'git fetch --unshallow' (CI: actions/checkout fetch-depth: 0)"
-        )
-        return None
-    out = subprocess.run(
-        ["git", "log", "--format=%h"], cwd=ROOT, capture_output=True, text=True
-    ).stdout.split()
-    return set(out)
 
 
 def main():
@@ -379,7 +354,7 @@ def main():
             err(f"{sh}: {r.stderr.strip()}")
     s.ok("bash -n clean")
 
-    s = Step("[8] Cyrillic / CJK outside allowed Russian files")
+    s = Step("[8] Cyrillic / CJK: repo is English-only")
     for root, dirs, files in os.walk("."):
         dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
         for fn in files:
@@ -390,12 +365,12 @@ def main():
                 continue
             text = open(p, encoding="utf-8", errors="ignore").read()
             if CYRILLIC.search(text):
-                err(f"{p}: Cyrillic found (allowed only in {RU_ALLOWED})")
+                err(f"{p}: Cyrillic found (repo is English-only)")
             if CJK.search(text):
                 err(f"{p}: CJK found")
     s.ok("no script artifacts")
 
-    s = Step("[9] documentation reality: paths exist, review SHAs resolve & unique")
+    s = Step("[9] documentation reality: paths exist")
     for doc in ("README.md", "docs/reviews.md"):
         text = open(doc, encoding="utf-8").read()
         for m in DOC_PATH.finditer(text):
@@ -404,51 +379,7 @@ def main():
                 err(f"{doc}: names missing path '{path}'")
     if not os.path.exists("docs/artifacts/native-v5-models-routing.txt"):
         err("docs/reviews.md: promised artifact docs/artifacts/... missing")
-    shas = git_shas()
-    if shas is None:
-        s.ok("skipped: see shallow-clone error above")
-        print()
-        print(f"VALIDATION FAILED: {len(errors)} error(s)")
-        return 1
-    # subject commit = the first SHA on the "Kommit(y) ..." header line
-    # (\u041a\u043a = Cyrillic K/k — kept escaped to keep this file ASCII);
-    # SHAs merely quoted inside the body may repeat across reviews
-    subj_re = re.compile(
-        "(?:[\u041a\u043a]\u043e\u043c\u043c\u0438\u0442(?:\u044b)?|Commit)\\s+`?([0-9a-f]{7,40})",
-        re.IGNORECASE,
-    )
-    seen = {}
-    for rf in sorted(fnmatch.filter(os.listdir("docs"), "review-*.md")):
-        text = open(f"docs/{rf}", encoding="utf-8").read()
-        m = subj_re.search(text[:400])
-        if not m:
-            err(
-                f"docs/{rf}: no subject commit line ('Kommit <sha>' in Cyrillic) in header"
-            )
-            continue
-        subj = m.group(1)
-        if subj not in shas:
-            err(f"docs/{rf}: subject commit {subj} not in git log")
-        elif subj in seen:
-            err(
-                f"docs/{rf}: subject {subj} already reviewed by "
-                f"docs/{seen[subj]} — each review must cover a distinct commit"
-            )
-        else:
-            seen[subj] = rf
-    # G-1: every review file must have its section in docs/reviews.md
-    # (review-v5.1.K.md documents round K+2)
-    journal = open("docs/reviews.md", encoding="utf-8").read()
-    have_rounds = {int(m) for m in re.findall(r"## Round (\d+)", journal)}
-    for rf in sorted(fnmatch.filter(os.listdir("docs"), "review-*.md")):
-        m = re.match(r"review-v5\.1\.(\d+)\.md", rf)
-        if m and int(m.group(1)) + 2 not in have_rounds:
-            err(
-                f"docs/{rf}: no 'Round {int(m.group(1)) + 2}' section in docs/reviews.md"
-            )
-    s.ok(
-        "doc paths on disk, review subject commits resolve and are unique, journal complete"
-    )
+    s.ok("doc paths named in README/docs exist on disk")
 
     print()
     if errors:

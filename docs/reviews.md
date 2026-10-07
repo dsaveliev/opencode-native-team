@@ -1,12 +1,13 @@
 # Review Rounds
 
 Eight external review rounds shaped v5 → v5.1.6. Original reviews were
-received in Russian. Round 1 lives in git history only
-(`git show 266708d:docs/audit-v5.md`). Rounds 3+ are committed as
-`docs/review-v5.1.*.md`. The round-2 original (`review-v5.1.md`, of commit
-`266708d`, findings R-1..R-11) was never committed and is not reproduced
-verbatim here — only its English summary table below. English summaries
-with resolutions:
+received in Russian; the verbatim Russian originals (the v1–v4 task and
+review-v5.1.* files) were later removed from the tree — see
+`git log --diff-filter=D --summary -- docs/ examples/` for the removal
+commit and recover any original via `git show <sha>^:<path>`. Round 1
+remains reachable as `git show 266708d:docs/audit-v5.md`. The round-2
+original (`review-v5.1.md`, of commit `266708d`, findings R-1..R-11) was
+never committed. English summaries with resolutions:
 
 ## Round 1 — initial audit (of v5)
 
@@ -80,7 +81,7 @@ with resolutions:
 | C-3 reviewer map duplicated, drift unguarded | closed by the superset check |
 | C-5 Russian-only subject keyword in the regex | Commit (EN) + Cyrillic equivalent, ignore-case |
 
-## Round 7 — review of v5.1.5 (`docs/review-v5.1.5.md`)
+## Round 7 — review of v5.1.5 (original removed; see intro)
 
 | Finding | Resolution |
 |---|---|
@@ -96,7 +97,7 @@ with resolutions:
 | UX (pause/scroll, stepper, badges, now marker, title, %, dark, responsive) | all implemented |
 | G-1 round 6 section missing while its fixes shipped | sections added; validator now enforces one section per review file |
 
-## Round 8 — review of v5.1.6 (`docs/review-v5.1.6.md`)
+## Round 8 — review of v5.1.6 (original removed; see intro)
 
 Status: **open** — findings recorded, fixes not yet applied.
 
