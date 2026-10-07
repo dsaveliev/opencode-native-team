@@ -40,6 +40,7 @@ cd opencode-native-team
 
 - [opencode](https://opencode.ai) ≥ 1.18
 - [OpenSpec CLI](https://github.com/Fission-AI/OpenSpec) ≥ 1.14 (`npm install -g @fission-ai/openspec`)
+- python3 (installer config merge + `scripts/validate.py`)
 - An `opencode.json` with model routing (see `examples/opencode.json.example`)
 
 ## Usage
@@ -213,10 +214,24 @@ are vendored; **every file** — including `references/*.md` — is pinned with 
 SHA-256 in `vendor/MANIFEST.yaml`. `install.sh` verifies full-length hashes and
 rejects missing or unlisted files before copying.
 
+## Execution plugins (context-mode + Ponytail)
+
+`install.sh` (project mode) recommends two external OpenCode plugins —
+[context-mode](https://github.com/mksglu/context-mode) (context/data plane:
+sandboxed analysis, FTS5 retrieval, session continuity) and
+[Ponytail](https://github.com/Dietrichgebert/ponytail) (implementation
+discipline: YAGNI, minimal diffs) — by adding them idempotently to the
+project's `opencode.json` `plugin` array. Nothing is vendored; role
+permissions are untouched by the merge and the agent contracts deny the
+`ctx_*` tools a read-only role must not reach (see the permission matrix in
+[docs/integrations.md](docs/integrations.md)). Opt out with
+`NATIVE_TEAM_PLUGINS=none ./install.sh ...`.
+
 ## Documentation
 
 - [SPEC.md](SPEC.md) — project specification
 - [docs/design-decisions.md](docs/design-decisions.md) — 13 design decisions
+- [docs/integrations.md](docs/integrations.md) — execution plugins: architecture, permission matrix, precedence
 - [docs/v4-to-v5.md](docs/v4-to-v5.md) — evolution and rationale
 - [docs/timing-analysis.md](docs/timing-analysis.md) — time decomposition
 

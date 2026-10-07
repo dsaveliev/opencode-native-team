@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": ["context-mode", "@dietrichgebert/ponytail"],
   "permission": {
     "edit": { "*": "allow" },
     "bash": { "*": "allow" }

@@ -65,13 +65,13 @@ opencode-native-team/
     validate.py                — mechanical repo checks (CI)
     check-model-routing.sh     — verify project model routing applies
     sync-skills.sh             — stack skills install/verify (+skills.lock)
+    integrate-plugins.py       — idempotent plugin-entry merge in target config
+    test-integrate-plugins.py  — behavioral fixture test for the merge (CI)
 
   vendor/                      — vendored dependencies (see MANIFEST.yaml)
-    MANIFEST.yaml              — dependency pins (skills, models, CLI versions)
-    skills/                    — copies of required skill files
-
   docs/
     design-decisions.md        — 13 design decisions
+    integrations.md            — execution plugins (context-mode, Ponytail)
     v4-to-v5.md                — what changed and why
     timing-analysis.md         — v4 time decomposition, v5 optimizations
 
