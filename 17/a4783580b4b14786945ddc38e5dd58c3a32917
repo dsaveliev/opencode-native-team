@@ -1,0 +1,56 @@
+agents/coder.md
+  s_0404b8eae6cf69::t_eac6f06fb7e40a 6-15
+scripts/gen-team-dashboard.py
+  s_0404b8eae6cf69::t_2e866c290c6800 775
+  s_0404b8eae6cf69::t_34daf404f4fd05 799-802
+  s_0404b8eae6cf69::t_b4ad030458ec85 1142-1146
+  s_0404b8eae6cf69::t_aeea378556d7a9 141-155,157-158,160,171,173,186-189,198-199
+  s_0404b8eae6cf69::t_1f12bcdf0e7974 598
+  s_0404b8eae6cf69::t_4e75ac505ccfd5 831-897
+agents/reviewer.md
+  s_0404b8eae6cf69::t_80c0a644b50c4c 8-17
+agents/orchestrator.md
+  s_0404b8eae6cf69::t_6efe8422d499a0 5-25
+commands/team.md
+  s_0404b8eae6cf69::t_ac3f6167e3f1ed 25-36
+commands/team-change.md
+  s_0404b8eae6cf69::t_c4334a8fd7f980 25-36
+openspec/specs/run-briefs/spec.md
+  s_0404b8eae6cf69::t_d37737bd191ace 288-329
+scripts/test-dashboard.py
+  s_0404b8eae6cf69::t_d02bdab4a0db25 164-179
+  s_0404b8eae6cf69::t_19841538490c5d 257-271
+scripts/validate.py
+  s_0404b8eae6cf69::t_db8c3ed154deb5 135-152
+  s_0404b8eae6cf69::t_84554ed9111cfc 180-204
+  s_0404b8eae6cf69::t_dffd22209bd7a2 31-46
+  s_0404b8eae6cf69::t_3b175c358135f1 313-320
+openspec/specs/plugin-integrations/spec.md
+  s_0404b8eae6cf69::t_31f22270bbbf1e 215-270
+README.md
+  s_0404b8eae6cf69::t_69399b31cb1161 243-277
+examples/opencode.json.example
+  s_0404b8eae6cf69::t_17b84cb7346671 6-17
+agents/tester.md
+  s_0404b8eae6cf69::t_4ffc0134ea1080 6-15
+openspec/changes/archive/2026-10-07-run-hardening/.openspec.yaml
+  s_0404b8eae6cf69::t_0723fe8bf986fc 1-2
+openspec/changes/archive/2026-10-07-run-hardening/tasks.md
+  s_0404b8eae6cf69::t_031ec34d183faf 1-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "17a4783580b4b14786945ddc38e5dd58c3a32917",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
