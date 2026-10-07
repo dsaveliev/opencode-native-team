@@ -1,0 +1,21 @@
+openspec/specs/plugin-integrations/spec.md
+  s_0ec21324e49144::t_2464aa2283330f 1-214
+openspec/changes/archive/2026-10-07-integrate-context-mode-ponytail/.openspec.yaml
+  s_0ec21324e49144::t_7e5df0a9bc0893 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "705c5eaed38fd10f76ba371d074edaf112424375",
+  "prompts": {},
+  "sessions": {
+    "s_0ec21324e49144": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eeabd4b36ffeOXlrwMmofrAm3d",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
