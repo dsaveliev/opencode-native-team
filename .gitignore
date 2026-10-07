@@ -2,3 +2,5 @@
 tmp/
 bin/
 .cov
+.opencode/
+__pycache__/
