@@ -1,0 +1,27 @@
+docs/integrations.md
+  s_0ec21324e49144::t_9668e92776b258 75,92-100
+  s_0ec21324e49144::t_66a47f75d63a0e 1-74,76-91,101-121
+examples/opencode.json.example
+  s_0ec21324e49144::t_081a8ab10bd244 3
+README.md
+  s_0ec21324e49144::t_81a7257742af7f 43
+  s_0ec21324e49144::t_3fbfeed2c345d0 217-229,234
+SPEC.md
+  s_0ec21324e49144::t_250cf17effbe9e 68-69,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "edc4a7b650c022650909c44a83c4bafd35c0519a",
+  "prompts": {},
+  "sessions": {
+    "s_0ec21324e49144": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eeabd4b36ffeOXlrwMmofrAm3d",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
