@@ -22,6 +22,7 @@ Exit 0 even on partial data (the loop must keep running). Zero deps, no CDN.
 
 import datetime
 import glob
+import hashlib
 import html
 import json
 import os
@@ -104,7 +105,7 @@ def load_sessions(dir_, start_ms=None):
         con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
         q = (
             "SELECT id, agent, model, time_created, time_updated, parent_id, "
-            "tokens_input, tokens_output, tokens_reasoning "
+            "tokens_input, tokens_output, tokens_reasoning, title "
             "FROM session WHERE directory = ?"
         )
         args = [dir_]
@@ -131,15 +132,17 @@ def load_sessions(dir_, start_ms=None):
                 "parent": r[5],
                 "tin": r[6] or 0,
                 "tout": (r[7] or 0) + (r[8] or 0),
+                "title": r[9] or "",
             }
         )
     return out
 
 
 def load_parts(session_ids, sessions):
-    """Recent text parts (work log) and errored tool parts (names)."""
+    """Recent text parts (work log), errored tool part counts, and the
+    latest errored tool calls as displayable entries."""
     if not session_ids:
-        return [], {}
+        return [], {}, []
     try:
         con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
         q = (
@@ -150,8 +153,9 @@ def load_parts(session_ids, sessions):
         rows = con.execute(q, session_ids).fetchall()
         con.close()
     except Exception:
-        return [], {}
-    texts, err_tools = [], {}
+        return [], {}, []
+    agent_of = {s["id"]: s["agent"] for s in sessions}
+    texts, err_tools, errs = [], {}, []
     for sid, t, data in rows:
         try:
             d = json.loads(data)
@@ -160,14 +164,19 @@ def load_parts(session_ids, sessions):
         if d.get("type") == "text":
             txt = (d.get("text") or "").strip()
             if len(txt) > 40:
-                agent = next((s["agent"] for s in sessions if s["id"] == sid), "?")
-                texts.append((t, agent, txt))
+                texts.append((t, agent_of.get(sid, "?"), txt))
         st = d.get("state") or {}
         if isinstance(st, dict) and st.get("status") == "error":
             tool = d.get("tool", "?")
             err_tools[tool] = err_tools.get(tool, 0) + 1
+            try:
+                excerpt = json.dumps(st.get("input"), ensure_ascii=False)[:120]
+            except Exception:
+                excerpt = ""
+            errs.append((t, agent_of.get(sid, "?"), tool, excerpt))
     texts.sort(key=lambda x: -x[0])
-    return texts[:40], err_tools
+    errs.sort(key=lambda x: -x[0])
+    return texts[:40], err_tools, errs[:30]
 
 
 def load_tasks(dir_, start_ms=None):
@@ -218,18 +227,19 @@ def load_tasks(dir_, start_ms=None):
 
 def load_commits(dir_, start_ms, have_state):
     # %x01 = SOH separator: immune to spaces/pipes in messages
-    out = sh("git log --reverse --format=%at%x01%s", dir_)
-    pts, msgs = [], []
+    out = sh("git log --reverse --format=%at%x01%h%x01%s", dir_)
+    pts, msgs, shas = [], [], []
     for line in out.split("\n"):
         if "\x01" not in line:
             continue
-        ts, msg = line.split("\x01", 1)
+        ts, sha, msg = line.split("\x01", 2)
         t = int(ts) * 1000
         if have_state and t < start_ms - 60_000:
             continue
         pts.append(max(0.0, (t - start_ms) / 60000))
         msgs.append(msg)
-    return pts, msgs
+        shas.append(sha)
+    return pts, msgs, shas
 
 
 def activity_chart(sessions, commits_t, commits_m, start_ms, now_ms):
@@ -239,14 +249,13 @@ def activity_chart(sessions, commits_t, commits_m, start_ms, now_ms):
     with a stable step, so labels never shift as time passes; new ones only
     append to the right. The right edge is ~now, so no now-marker is needed.
     Lanes: commits (diamonds, full-message tooltips) on top, then one lane
-    per agent with a bar per session (created..updated).
+    per agent (ordered by the agent's first activity in the window) with a
+    bar per session (created..updated).
     """
-    agents_present = []
-    for a in ["orchestrator", "planner", "coder", "tester", "reviewer"]:
-        if any(s["agent"] == a for s in sessions):
-            agents_present.append(a)
-    for a in sorted({s["agent"] for s in sessions} - set(agents_present)):
-        agents_present.append(a)
+    firsts = {}
+    for s in sessions:
+        firsts[s["agent"]] = min(firsts.get(s["agent"], s["created"]), s["created"])
+    agents_present = [a for a, _ in sorted(firsts.items(), key=lambda kv: kv[1])]
 
     width = 860
     left, right = 118, 16
@@ -444,6 +453,120 @@ def adopt_window(dir_, now_ms=None):
     return min((s["created"] for s in _all), default=now_ms), False
 
 
+STAGE_STEPS = ["plan", "code", "test", "review", "done"]
+TASK_NUM = re.compile(r"^(\d+(?:\.\d+)?)\.?\s+")
+SUB_ROLES = ("planner", "coder", "tester", "reviewer")
+
+
+def compute_stage(sessions, done, total, now_ms):
+    """Macro run stage from task progress (dashboard-ux-2 D1).
+
+    Wave-based runs cycle coder/tester/review per wave, so the stage of the
+    newest subagent role oscillates (review -> code). The macro stage tracks
+    run-level progress instead and never depends on the current role:
+    nothing checked -> plan; unchecked tasks remain -> code; all checked ->
+    review while anything is active, done when quiet."""
+    active = any(now_ms - s["updated"] < 600_000 for s in sessions)
+    if total == 0 or done == 0:
+        return "plan"
+    if done < total:
+        return "code"
+    return "review" if active else "done"
+
+
+def task_token(title):
+    """Leading task id from a tasks.md line ("3.1 nested" -> "3.1")."""
+    m = TASK_NUM.match(title)
+    return m.group(1) if m else None
+
+
+def now_activity(sessions, now_ms):
+    """(role, wave) of the most recently active subagent, last 10 minutes.
+
+    Wave = 1 + number of coder sessions created after the first reviewer
+    session (design D1); 0 when no subagent is active."""
+    subs = [s for s in sessions if s["agent"] in SUB_ROLES]
+    recent = [s for s in subs if now_ms - s["updated"] < 600_000]
+    if not recent:
+        return None, 0
+    role = max(recent, key=lambda s: s["updated"])["agent"]
+    rev0 = min((s["created"] for s in subs if s["agent"] == "reviewer"), default=None)
+    waves = sum(1 for s in subs if s["agent"] == "coder")
+    if rev0 is not None:
+        waves = (
+            sum(1 for s in subs if s["agent"] == "coder" and s["created"] > rev0) + 1
+        )
+    return role, waves
+
+
+def task_spans(sessions, task_changes, now_ms):
+    """Per-top-level-task timing (design D6).
+
+    token -> {"dur": completed duration ms, "est": median-based projection
+    ms or None, "act": currently worked on, "started": wave start ms}.
+    Durations come from the span of subagent sessions whose title references
+    the task id (/team and /team-change wave titles); a completed task with
+    no referencing session falls back to the whole run span."""
+    tops = []
+    for name, es in task_changes:
+        for it in es:
+            if it[0] == "t" and it[2] == 0:
+                tok = task_token(it[3])
+                if tok:
+                    tops.append((name, tok, it[1]))
+    subs = [s for s in sessions if s["agent"] in SUB_ROLES]
+
+    def sessions_for(tok):
+        rx = re.compile(r"\b%s\b" % re.escape(tok))
+        return [s for s in subs if rx.search(s.get("title") or "")]
+
+    role, _wave = now_activity(sessions, now_ms)
+    act_tok = set()
+    if role:
+        fresh = max(
+            (s for s in subs if now_ms - s["updated"] < 600_000),
+            key=lambda s: s["updated"],
+            default=None,
+        )
+        if fresh:
+            for _name, tok, _d in tops:
+                if re.search(r"\b%s\b" % re.escape(tok), fresh.get("title") or ""):
+                    act_tok.add(tok)
+
+    durs = []
+    meta = {}
+    run_span = max(
+        (max(s["updated"] for s in sessions) - min(s["created"] for s in sessions))
+        if sessions
+        else 0,
+        1,
+    )
+    for _name, tok, done in tops:
+        ss = sessions_for(tok)
+        if done:
+            dur = (
+                (max(s["updated"] for s in ss) - min(s["created"] for s in ss))
+                if ss
+                else run_span
+            )
+            durs.append(max(dur, 60_000))
+            meta[tok] = {"dur": dur, "est": None, "act": False, "started": None}
+        else:
+            meta[tok] = {
+                "dur": None,
+                "est": None,
+                "act": tok in act_tok,
+                "started": min((s["created"] for s in ss), default=None),
+            }
+    durs.sort()
+    med = durs[len(durs) // 2] if durs else None
+    if med is not None:
+        for tok, m in meta.items():
+            if m["dur"] is None:
+                m["est"] = med
+    return meta, med
+
+
 def collect_data(dir_):
     now_ms = time.time() * 1000
     refresh = max(2, int(cfg_chain(dir_, "refresh", 5) or 5))
@@ -452,9 +575,9 @@ def collect_data(dir_):
         sessions = load_sessions(dir_, start)
     else:
         sessions = load_sessions(dir_)
-    texts, err_tools = load_parts([s["id"] for s in sessions], sessions)
+    texts, err_tools, errs = load_parts([s["id"] for s in sessions], sessions)
     done, total, task_changes = load_tasks(dir_, start if have_state else None)
-    commits_t, commits_m = load_commits(dir_, start, have_state)
+    commits_t, commits_m, commits_s = load_commits(dir_, start, have_state)
     elapsed = max(now_ms - start, 0)
     porcelain = sh("git status --porcelain", dir_).strip()
     dirty = porcelain.count("\n") + (1 if porcelain else 0)
@@ -463,7 +586,15 @@ def collect_data(dir_):
     for s in sessions:
         a = agents.setdefault(
             s["agent"],
-            {"n": 0, "spawns": 0, "tin": 0, "tout": 0, "model": s["model"], "last": 0},
+            {
+                "n": 0,
+                "spawns": 0,
+                "tin": 0,
+                "tout": 0,
+                "model": s["model"],
+                "last": 0,
+                "first": s["created"],
+            },
         )
         a["n"] += 1
         if s["parent"]:
@@ -471,6 +602,7 @@ def collect_data(dir_):
         a["tin"] += s["tin"]
         a["tout"] += s["tout"]
         a["last"] = max(a["last"], s["updated"])
+        a["first"] = min(a["first"], s["created"])
 
     proj_loc = project_loc(dir_)
     coverage = test_coverage(dir_)
@@ -481,71 +613,48 @@ def collect_data(dir_):
     active = now_ms - last_act < 180_000
     nerr = sum(err_tools.values())
 
-    # stage stepper: last orchestrator text → keywords; fallback: last active agent
-    stages = ["plan", "code", "test", "review", "done"]
-    stage = None
-    # primary signal: the most recently active SUBAGENT role (last 10 minutes) —
-    # keyword scanning of one orchestrator text misfires on phrases like
-    # "first coder, then reviewer"
-    role2stage = {
-        "planner": "plan",
-        "coder": "code",
-        "tester": "test",
-        "reviewer": "review",
-    }
-    recent_sub = [
-        (d["last"], a)
-        for a, d in agents.items()
-        if a in role2stage and now_ms - d["last"] < 600_000
-    ]
-    if recent_sub:
-        stage = role2stage[max(recent_sub)[1]]
-    orch_texts = [x for _t, a, x in texts if a == "orchestrator"]
-    last_txt = orch_texts[0].lower() if orch_texts else ""
-    for kw, st in [
-        ("archive|final gates|closing", "done"),
-    ]:
-        if stage is None and re.search(kw, last_txt):
-            stage = st
-            break
-    if stage is None:
-        by_agent = {a: d["last"] for a, d in agents.items()}
-        last_agent = max(by_agent, key=by_agent.get) if by_agent else None
-        stage = role2stage.get(last_agent, "plan")
-    stage_idx = stages.index(stage)
+    # macro stage from task progress (dashboard-ux-2 D1) + instantaneous
+    # activity label; the old role-derived stage oscillated with waves
+    stage = compute_stage(sessions, done, total, now_ms)
+    role, wave = now_activity(sessions, now_ms)
+    if role:
+        now_label = f"{role}, wave {wave}" if wave else role
+    elif sessions and now_ms - last_act < 600_000:
+        now_label = "orchestrator"
+    else:
+        now_label = "quiet"
+    stage_idx = STAGE_STEPS.index(stage)
     steps = []
-    for i, n in enumerate(stages):
+    for i, n in enumerate(STAGE_STEPS):
         cls = "step"
         if i < stage_idx:
             cls += " done"
         if i == stage_idx:
             cls += " cur"
         steps.append(f'<span class="{cls}">{n}</span>')
-        if i < len(stages) - 1:
+        if i < len(STAGE_STEPS) - 1:
             steps.append("<span class=sep></span>")
     stepper = "".join(steps)
 
+    # per-top-level-task timing + median projection (D6)
+    task_meta, med = task_spans(sessions, task_changes, now_ms)
+
     eta = "no ETA yet"
-    if done:
+    if med is not None:
+        eta = f"~{round((med / 60000) * (total - done))} min left"
+    elif done:
         rate = (elapsed / 60000) / done
         eta = f"~{round(rate * (total - done))} min left"
 
-    err_str = (
-        ", ".join(
-            f"{html.escape(str(t))}&times;{n}" for t, n in sorted(err_tools.items())
-        )
-        or "none"
-    )
-
     cards = f"""
-<div class=card><div class=v>{done}/{total}</div><div class=l>tasks done</div></div>
-<div class=card><div class=v>{len(commits_t)}</div><div class=l>commits</div></div>
+<a class=card href="#panel-tasks"><div class=v>{done}/{total}</div><div class=l>tasks done</div></a>
+<a class=card href="#panel-commits"><div class=v>{len(commits_t)}</div><div class=l>commits</div></a>
 <div class=card><div class=v>{fmt_k(tin)}</div><div class=l>tokens in</div></div>
 <div class=card><div class=v>{fmt_k(tout)}</div><div class=l>tokens out</div></div>
-<div class=card><div class=v>{spawns}</div><div class=l>subagent spawns</div></div>
+<a class=card href="#panel-agents"><div class=v>{spawns}</div><div class=l>subagent spawns</div></a>
 <div class=card><div class=v>{fmt_k(proj_loc)}</div><div class=l>loc (tracked)</div></div>
 <div class=card><div class=v>{coverage if coverage is not None else "&mdash;"}</div><div class=l>test coverage %</div></div>
-<div class=card><div class=v>{nerr}</div><div class=l>tool errors</div></div>
+<a class=card href="#panel-errors"><div class=v>{nerr}</div><div class=l>tool errors</div></a>
 <div class=card><div class=v>{fmt_ms(elapsed)}</div><div class=l>elapsed &middot; {html.escape(eta)}</div></div>
 """
 
@@ -556,7 +665,7 @@ def collect_data(dir_):
         f"<td class=num>{fmt_k(d['tout'])}</td>"
         f"<td class=num>{fmt_ms(max(now_ms - d['last'], 0))} ago</td>"
         f"<td>{'<span class=live>active</span>' if now_ms - d['last'] < 180_000 else 'idle'}</td></tr>"
-        for a, d in sorted(agents.items())
+        for a, d in sorted(agents.items(), key=lambda kv: kv[1]["first"])
     )
 
     pct = round(100 * done / total) if total else 0
@@ -565,30 +674,70 @@ def collect_data(dir_):
         d_n = sum(1 for it in es if it[0] == "t" and it[1])
         t_n = sum(1 for it in es if it[0] == "t")
         task_html += f"<div class=tch>{html.escape(name)} — {d_n}/{t_n}</div>"
+        open_det = False
         for it in es:
             if it[0] == "h":
+                if open_det:
+                    task_html += "</details>"
+                    open_det = False
                 task_html += f"<div class=tw>{html.escape(it[1])}</div>"
                 continue
             _, d, depth, title = it
             cls = "tdone" if d else "ttodo"
             mark = "&#10003;" if d else "&#9744;"
-            task_html += (
-                f'<div class="{cls}" style="padding-left:{6 + depth * 18}px">'
-                f"{mark} {html.escape(title)}</div>"
-            )
+            m = task_meta.get(task_token(title)) or {}
+            if depth == 0:
+                if open_det:
+                    task_html += "</details>"
+                meta_bits = []
+                if d and m.get("dur") is not None:
+                    meta_bits.append(f"<span class=tmeta>{fmt_ms(m['dur'])}</span>")
+                elif m.get("act") and m.get("started"):
+                    meta_bits.append(
+                        f"<span class=tmeta>&middot; {fmt_ms(max(now_ms - m['started'], 0))}</span>"
+                    )
+                elif m.get("est") is not None:
+                    meta_bits.append(
+                        f'<span class="tmeta est">~{fmt_ms(m["est"])}</span>'
+                    )
+                act_cls = " tkact" if m.get("act") else ""
+                key = html.escape(f"{name}:{task_token(title)}")
+                task_html += (
+                    f'<details class="tk{act_cls}" data-k="{key}">'
+                    f"<summary><span class={cls}>{mark} {html.escape(title)}</span>"
+                    f"{''.join(meta_bits)}</summary>"
+                )
+                open_det = True
+            else:
+                task_html += (
+                    f'<div class="{cls} tsub" style="padding-left:{6 + depth * 18}px">'
+                    f"{mark} {html.escape(title)}</div>"
+                )
+        if open_det:
+            task_html += "</details>"
         task_html += "<div style='height:6px'></div>"
 
     log_html = "".join(
         f"<div class=ev><span class=t>{datetime.datetime.fromtimestamp(t / 1000).strftime('%H:%M:%S')}</span>"
         f'<span class="ag" style="color:{agent_color(a)}">{html.escape(a)}{agent_badge(a)}</span>'
-        f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(x)}</span></div>"
+        f'<span class="tx" data-k="log:{a}:{t}">{html.escape(x)}</span></div>'
         for t, a, x in texts
     )
 
+    err_rows = "".join(
+        f"<div class=ev><span class=t>{datetime.datetime.fromtimestamp(t / 1000).strftime('%H:%M:%S')}</span>"
+        f'<span class="ag" style="color:{agent_color(a)}">{html.escape(a)}</span>'
+        f'<span class="tx" data-k="err:{t}:{tool}"><b>{html.escape(str(tool))}</b> {html.escape(str(ex))}</span></div>'
+        for t, a, tool, ex in errs
+    )
+    err_html = err_rows or "<div class=muted>none</div>"
+
     commit_entries = [
         f"<div class=ev><span class=t>+{p:.0f}m</span>"
-        f"<span class=tx onclick=\"this.classList.toggle('exp')\">{html.escape(m)}</span></div>"
-        for p, m in zip(reversed(commits_t), reversed(commits_m))
+        f'<span class="tx" data-k="cmt:{s}">{html.escape(m)}</span></div>'
+        for p, m, s in zip(
+            reversed(commits_t), reversed(commits_m), reversed(commits_s)
+        )
     ]
     commits_list = "".join(commit_entries[:40]) or "<div class=muted>none yet</div>"
 
@@ -615,15 +764,17 @@ def collect_data(dir_):
         "active": active,
         "nerr": nerr,
         "stage": stage,
+        "now_label": now_label,
         "stepper": stepper,
         "eta": eta,
-        "err_str": err_str,
         "cards": cards,
         "agent_rows": agent_rows,
         "pct": pct,
         "task_html": task_html,
         "log_html": log_html,
+        "err_html": err_html,
         "commits_list": commits_list,
+        "_texts": texts,
     }
 
 
@@ -642,6 +793,7 @@ def state_json(d):
         "project": os.path.basename(d["dir"]),
         "active": d["active"],
         "stage": d["stage"],
+        "now": d["now_label"],
         "sessions": len(d["sessions"]),
         "tasks_done": d["done"],
         "tasks_total": d["total"],
@@ -655,11 +807,19 @@ def render_html(dir_, d):
     DONE, TOTAL = d["done"], d["total"]
     SESSIONS, COMMITS_T = d["sessions"], d["commits_t"]
     START, NOW, REFRESH = d["start"], d["now_ms"], d["refresh"]
-    DIRTY, last_act, err_str = d["dirty"], d["last_act"], d["err_str"]
+    DIRTY, last_act = d["dirty"], d["last_act"]
     cards, stepper, pct = d["cards"], d["stepper"], d["pct"]
     agent_rows = d["agent_rows"]
     task_html, log_html, commits_list = d["task_html"], d["log_html"], d["commits_list"]
+    err_html, now_label, nerr = d["err_html"], d["now_label"], d["nerr"]
     active = d["active"]
+    # work-log seed for the client buffer (D4): the server render keeps only
+    # the newest 40; localStorage carries the rest across reloads
+    log_seed = json.dumps([{"t": t, "a": a, "x": x[:400]} for t, a, x in d["_texts"]])
+    log_key = "dash-log:%s:%s" % (
+        hashlib.md5(dir_.encode()).hexdigest()[:10],
+        START,
+    )
     state_html = "&#9679; live" if active else "&#9675; idle"
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -674,8 +834,9 @@ def render_html(dir_, d):
  button{{font-family:inherit;font-size:12px;padding:4px 14px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--fg);cursor:pointer}}
  button:hover{{border-color:var(--acc);color:var(--acc)}} button:active{{transform:translateY(1px)}}
  .meta{{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);margin:5px 0 14px}}
- .cards{{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px}}
- .card{{flex:1 1 0;min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+  .cards{{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:10px}}
+  .card{{flex:1 1 0;min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+  a.card{{color:inherit;text-decoration:none}} a.card:hover{{border-color:var(--acc)}} a.card:active{{transform:translateY(1px)}}
  .card .v{{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}}
  .card .l{{font-size:11px;color:var(--muted);margin-top:2px}}
  .bar{{height:10px;background:var(--grid);border-radius:5px;overflow:hidden;margin:4px 0 12px;display:flex;align-items:center;gap:10px}}
@@ -698,11 +859,19 @@ def render_html(dir_, d):
  .tx{{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}}
  .tx.exp{{white-space:normal;max-width:none}}
  .pt:hover{{transform:scale(1.6);transform-box:fill-box;transform-origin:center}}
- .row2{{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}}
- .tch{{font-family:ui-monospace,monospace;color:var(--muted);font-size:11.5px;margin-top:4px}}
- .tw{{font-weight:700;font-size:12px;margin:7px 0 2px;text-transform:uppercase;letter-spacing:.04em;color:var(--fg)}}
- .ttodo{{padding:1px 0 1px 6px;font-size:12.5px;font-weight:600}}
- .tdone{{padding:1px 0 1px 6px;font-size:12.5px;color:var(--muted)}}
+  .row2{{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}}
+  .tch{{font-family:ui-monospace,monospace;color:var(--muted);font-size:11px;margin-top:6px;opacity:.85}}
+  .tw{{font-weight:600;font-size:11px;margin:8px 0 3px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}}
+  .tk{{margin:1px 0;border-radius:5px}}
+  .tk>summary{{cursor:pointer;list-style-position:outside;padding:2px 4px;border-radius:5px}}
+  .tk>summary:hover{{background:var(--grid)}}
+  .tk[open]>summary{{border-bottom:1px dashed var(--border);border-radius:5px 5px 0 0}}
+  .tmeta{{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--muted);margin-left:6px;white-space:nowrap}}
+  .tmeta.est{{opacity:.8}}
+  .tkact>summary{{box-shadow:inset 2px 0 0 var(--acc);background:color-mix(in srgb,var(--acc) 7%,transparent)}}
+  .ttodo{{padding:1px 0 1px 6px;font-size:12.5px;font-weight:500}}
+  .tdone{{padding:1px 0 1px 6px;font-size:12.5px;color:var(--muted)}}
+  .tsub{{border-left:1px solid var(--border);margin-left:10px}}
  .grid{{stroke:var(--grid)}} .axt{{font-size:10px;fill:var(--muted);font-family:ui-monospace,monospace}}
  .lat{{font-size:11px;font-weight:600;font-family:ui-monospace,monospace}}
  .axis{{stroke:var(--grid);stroke-width:1}} .dia{{fill:var(--acc)}}
@@ -717,19 +886,23 @@ def render_html(dir_, d):
  <button onclick="location.reload()">refresh</button>
  <button id=pause onclick="togglePause()">pause</button>
 </div></div>
-<div class=meta>project: <code>{html.escape(dir_)}</code> &middot; run start {datetime.datetime.fromtimestamp(START / 1000).strftime("%H:%M:%S")}
- &middot; refreshed {datetime.datetime.now().strftime("%H:%M:%S")} ({REFRESH}s) &middot; dirty files: {DIRTY}
- &middot; last activity {fmt_ms(max(NOW - last_act, 0))} ago &middot; tool errors: {err_str}</div>
-<div class=cards>{cards}</div>
-<div class=bar><div></div><span class=barlab>{pct}%</span></div>
-<div class=stepper><span class=muted style="margin-right:8px">run stage:</span>{stepper}</div>
-<div class=panel><h2>Activity — sessions &amp; commits (wall clock)</h2>{activity_chart(SESSIONS, COMMITS_T, d["commits_m"], START, NOW)}</div>
-<div class=panel><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawned</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
-<div class=row2>
- <div class=panel><h2>Tasks ({DONE}/{TOTAL})</h2>{task_html or "<div class=muted>no openspec tasks found</div>"}</div>
- <div class=panel><h2>Commits</h2><div class=feed>{commits_list}</div></div>
-</div>
-<div class=panel><h2>Work log</h2><div class=feed>{log_html or "<div class=muted>waiting for output…</div>"}</div></div>
+ <div class=meta>project: <code>{html.escape(dir_)}</code> &middot; run start {datetime.datetime.fromtimestamp(START / 1000).strftime("%H:%M:%S")}
+  &middot; refreshed {datetime.datetime.now().strftime("%H:%M:%S")} ({REFRESH}s) &middot; dirty files: {DIRTY}
+  &middot; last activity {fmt_ms(max(NOW - last_act, 0))} ago</div>
+ <div class=cards>{cards}</div>
+ <div class=bar><div></div><span class=barlab>{pct}%</span></div>
+ <div class=stepper><span class=muted style="margin-right:8px">run stage:</span>{stepper}
+  <span class=muted style="margin-left:10px">now: {html.escape(now_label)}</span></div>
+ <div class=panel><h2>Activity — sessions &amp; commits (wall clock)</h2>{activity_chart(SESSIONS, COMMITS_T, d["commits_m"], START, NOW)}</div>
+ <div class="panel" id="panel-agents"><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawned</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
+ <div class=row2>
+  <div class="panel" id="panel-tasks"><h2>Tasks ({DONE}/{TOTAL})</h2>{task_html or "<div class=muted>no openspec tasks found</div>"}</div>
+  <div class="panel" id="panel-commits"><h2>Commits</h2><div class=feed>{commits_list}</div></div>
+ </div>
+ <div class=row2>
+  <div class="panel" id="panel-log"><h2>Work log</h2><div class="feed" id="feed-log">{log_html or "<div class=muted>waiting for output…</div>"}</div></div>
+  <div class="panel" id="panel-errors"><h2>Tool errors ({nerr})</h2><div class=feed>{err_html}</div></div>
+ </div>
 <div id=tip></div>
 <div class=meta>generated by scripts/gen-team-dashboard.py &middot; data: opencode session db + git + openspec tasks &middot; no external deps</div>
 <script>
@@ -753,8 +926,76 @@ document.addEventListener('mouseout', e => {{
 const sGet = k => {{ try {{ return sessionStorage.getItem(k); }} catch (e) {{ return null; }} }};
 const sSet = (k, v) => {{ try {{ sessionStorage.setItem(k, v); }} catch (e) {{}} }};
 const sDel = k => {{ try {{ sessionStorage.removeItem(k); }} catch (e) {{}} }};
+const lGet = k => {{ try {{ return localStorage.getItem(k); }} catch (e) {{ return null; }} }};
+const lSet = (k, v) => {{ try {{ localStorage.setItem(k, v); }} catch (e) {{}} }};
 let tmr = null;
 const SIG = {json.dumps(state_sig(d))};
+
+// expansion state survives reloads (dashboard-ux-2 D3): every expandable row
+// carries a stable data-k; open ones are remembered in sessionStorage and
+// re-opened after the page repaints
+const KEYS = 'dash-open';
+const openKeys = () => JSON.parse(sGet(KEYS) || '[]');
+const setOpenKeys = a => sSet(KEYS, JSON.stringify(a));
+function applyKeys() {{
+  openKeys().forEach(k => {{
+    const el = document.querySelector('[data-k="' + CSS.escape(k) + '"]');
+    if (!el) return;
+    if (el.tagName === 'DETAILS') el.open = true;
+    else el.classList.add('exp');
+  }});
+}}
+function recordKey(el, on) {{
+  const k = el.getAttribute && el.getAttribute('data-k');
+  if (!k) return;
+  const a = openKeys().filter(x => x !== k);
+  if (on) a.push(k);
+  setOpenKeys(a.slice(-400));
+}}
+document.addEventListener('click', e => {{
+  const t = e.target.closest && e.target.closest('.tx[data-k]');
+  if (t) {{ t.classList.toggle('exp'); recordKey(t, t.classList.contains('exp')); }}
+}});
+document.addEventListener('toggle', e => {{
+  const t = e.target;
+  if (t.tagName === 'DETAILS' && t.hasAttribute('data-k')) recordKey(t, t.open);
+}}, true);
+applyKeys();
+
+// work-log history across reloads (D4): server keeps the newest 40 entries;
+// localStorage accumulates everything (cap 500) per project + run window
+const LOGKEY = {json.dumps(log_key)};
+const LOGSEED = {log_seed};
+const ACOLORS = {json.dumps(AGENT_COLORS)};
+(function logBuffer() {{
+  const feed = document.getElementById('feed-log');
+  if (!feed || !LOGSEED.length) return;
+  let buf;
+  try {{ buf = JSON.parse(lGet(LOGKEY) || '[]'); }} catch (e) {{ buf = []; }}
+  const seen = new Set(LOGSEED.map(e => e.t + '|' + e.a));
+  let added = false;
+  LOGSEED.forEach(e => {{
+    if (!buf.some(b => b.t === e.t && b.a === e.a)) {{ buf.push(e); added = true; }}
+  }});
+  buf.sort((x, y) => y.t - x.t);
+  buf = buf.slice(0, 500);
+  lSet(LOGKEY, JSON.stringify(buf));
+  const oldest = Math.min(...LOGSEED.map(e => e.t));
+  buf.filter(e => !seen.has(e.t + '|' + e.a) && e.t < oldest)
+     .forEach(e => {{
+       const row = document.createElement('div');
+       row.className = 'ev';
+       const t = document.createElement('span'); t.className = 't';
+       t.textContent = new Date(e.t).toLocaleTimeString();
+       const a = document.createElement('span'); a.className = 'ag';
+       a.style.color = ACOLORS[e.a] || 'var(--muted)'; a.textContent = e.a;
+       const x = document.createElement('span'); x.className = 'tx';
+       x.setAttribute('data-k', 'log:' + e.a + ':' + e.t); x.textContent = e.x;
+       row.append(t, a, x); feed.appendChild(row);
+     }});
+  if (added) applyKeys();
+}})();
+
 // live page (design dashboard-serve D1): poll /state, repaint only when the
 // data signature changed; on fetch failure show a stopped-banner instead of
 // quietly looking alive. file:// keeps the legacy reload (file mode: `once`).

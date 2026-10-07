@@ -160,6 +160,84 @@ try:
     ).read()
     check("archive view counts old change", ">42/45<" in page2)
     check("archive view exit 0", r2.returncode == 0)
+
+    # --- dashboard-ux-2: stage model, task tree, panels, anchors ---
+    # macro stage from task progress: 2/5 done -> code (never role-derived)
+    check("macro stage=code from progress", 'class="step cur">code' in page)
+    check("now-label present (quiet, no sessions)", ">now: quiet<" in page)
+    # collapsible top-level tasks with stable keys
+    check("task <details> rendered", 'details class="tk"' in page)
+    check("task data-k keys", 'data-k="alpha:1"' in page and 'data-k="alpha:3"' in page)
+    check("subtask inside details", "nested sub thing" in page)
+    # ETA projection: top-level 1,2 done -> est on remaining (min 1m)
+    check("tmeta est present", 'class="tmeta est">~' in page)
+    # tool errors panel beside work log, both with ids
+    check(
+        "tool errors panel",
+        'id="panel-errors"' in page and ">Tool errors (0)</h2>" in page,
+    )
+    check("work log panel id", 'id="panel-log"' in page)
+    # summary tiles anchor to panels
+    check(
+        "tile anchors",
+        'href="#panel-tasks"' in page
+        and 'href="#panel-commits"' in page
+        and 'href="#panel-agents"' in page,
+    )
+    # expandable rows carry stable keys (expansion preservation, D3)
+    check("log rows keyed", 'data-k="cmt:' in page)
+    check("expansion JS present", "applyKeys" in page and "dash-open" in page)
+    check("log buffer JS present", "LOGSEED" in page and "dash-log:" in page)
+
+    # --- dashboard-ux-2 unit phase: pure stage/wave/span functions ---
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("gtm", GEN)
+    gtm = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gtm)
+    now = 1_000_000_000_000
+
+    def sess(agent, created, updated, title=""):
+        return {"agent": agent, "created": created, "updated": updated, "title": title}
+
+    # wave regression: reviewer done 1 min ago, coder wave B active, 2/5 tasks
+    wave_sessions = [
+        sess("orchestrator", now - 3600_000, now - 60_000),
+        sess("reviewer", now - 3000_000, now - 120_000, "Review wave A"),
+        sess("coder", now - 900_000, now - 30_000, "Wave B: task 2.1"),
+    ]
+    check(
+        "stage stays code across wave flip (was: review)",
+        gtm.compute_stage(wave_sessions, 2, 5, now) == "code",
+    )
+    check(
+        "all done + active -> review",
+        gtm.compute_stage(wave_sessions, 5, 5, now) == "review",
+    )
+    check(
+        "all done + quiet -> done",
+        gtm.compute_stage(wave_sessions, 5, 5, now + 3600_000) == "done",
+    )
+    check("nothing done -> plan", gtm.compute_stage(wave_sessions, 0, 5, now) == "plan")
+    role, wave = gtm.now_activity(wave_sessions, now)
+    check("now activity = coder, wave 2", role == "coder" and wave == 2)
+    # task durations from wave-title references + median projection
+    span_sessions = [
+        sess("coder", now - 1800_000, now - 900_000, "Wave A: task 1.1"),
+        sess("tester", now - 900_000, now - 600_000, "Test wave A task 1.1"),
+        sess("coder", now - 500_000, now - 100_000, "Wave B: task 1.2"),
+    ]
+    changes = [
+        ("c", [("t", True, 0, "1.1 first thing"), ("t", False, 0, "1.2 second thing")])
+    ]
+    meta, med = gtm.task_spans(span_sessions, changes, now)
+    check(
+        "done task duration from wave span",
+        meta["1.1"]["dur"] == 1_200_000,
+    )
+    check("pending task gets est = median", meta["1.2"]["est"] == 1_200_000)
+    check("active task flagged", meta["1.2"]["act"] is True)
+    check("median value", med == 1_200_000)
 finally:
     shutil.rmtree(fx, ignore_errors=True)
 

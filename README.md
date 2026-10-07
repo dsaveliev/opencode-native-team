@@ -224,12 +224,25 @@ session DB + git + openspec tasks, zero dependencies.
 - Port already occupied = hard error naming the holding PID (set `port`
   per project to run two dashboards side by side). After `stop` the final
   HTML stays at `tmp/team-dashboard.html`.
-- Panels: cards, run-stage stepper, activity swimlanes (per-agent session
-  bars + commit markers on a stable wall-clock axis), agents table with
-  spawn counts, task tree, work log and commit list (click to expand,
-  hover the chart for popups). Optional test-coverage card is opt-in via
-  `coverage_ttl` (seconds; 0/off by default — the tick must not race the
-  tester agent).
+- Panels: cards (tasks/commits/spawns/errors tiles link to their panels),
+  run-stage stepper, activity swimlanes (lanes ordered by first activity),
+  agents table with spawn counts, collapsible task tree, work log and commit
+  list (click to expand, hover the chart for popups), tool-errors panel
+  beside the work log (tool, agent, time, failing input excerpt). Optional
+  test-coverage card is opt-in via `coverage_ttl` (seconds; 0/off by
+  default — the tick must not race the tester agent).
+- Run stage is derived from task progress (plan → code → review → done) and
+  never jumps backward when a new wave starts; the instantaneous activity
+  rides along as a "now: <role>, wave N" label next to the stepper.
+- Task timing: completed top-level tasks show their duration; once one has
+  finished, remaining top-level tasks and the run ETA show a `~` projection
+  (median of completed durations — an estimate, clearly marked). The task
+  currently being worked on is highlighted and shows live elapsed.
+- Interaction survives refreshes: expanded rows (log, commits, tasks) are
+  remembered per row and re-opened after each automatic repaint; work-log
+  history older than the newest 40 entries is kept in the browser's
+  localStorage (per project + run window, cap 500) so a page reload does
+  not lose it. No dashboard data is ever written into the observed project.
 
 ## Stack Skills (per-project extensions)
 
