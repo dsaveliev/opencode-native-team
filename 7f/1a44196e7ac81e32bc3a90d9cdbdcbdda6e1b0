@@ -1,0 +1,68 @@
+openspec/specs/run-dashboard/spec.md
+  s_0404b8eae6cf69::t_4d067ba670c01a 48-52,61-66
+  s_0404b8eae6cf69::t_275f54897ba713 161-265
+  s_81c67f7dfbb127::t_96677d077e06e9 67
+scripts/gen-team-dashboard.py
+  s_0404b8eae6cf69::t_a286db7fe5ef4d 108,135
+  s_0404b8eae6cf69::t_e6cc27e82f5586 578,580,589-597,605,616-621,624,626,628,635,639-641,643-645,650-651,654,657,668,677,680-682,688-717,723,727-734,737-740
+  s_0404b8eae6cf69::t_967d726261b0f0 622-623,625
+  s_0404b8eae6cf69::t_635c96dec0bdb2 929-930,933-998
+  s_0404b8eae6cf69::t_1fff3447ee035d 252-253,255-258
+  s_0404b8eae6cf69::t_042c5563f53826 25
+  s_0404b8eae6cf69::t_9de5dc276b0d64 767,775
+  s_0404b8eae6cf69::t_a8203608cafe29 230-231,235,241-242
+  s_0404b8eae6cf69::t_234264f8e5aaff 796
+  s_0404b8eae6cf69::t_1a45c5a68fd37d 816,818,820
+  s_0404b8eae6cf69::t_ab5e35c3c14fee 142-143,145,156-158,167,172-176,178-179
+  s_0404b8eae6cf69::t_7dbaa71c223876 810,814,817,819,821-822
+  s_0404b8eae6cf69::t_0c7c8ea3e3d98f 837-839
+  s_0404b8eae6cf69::t_0d0867bdc28bb9 862-874
+  s_0404b8eae6cf69::t_a05678c52dbfd5 539
+  s_0404b8eae6cf69::t_6ecd41cac38c9d 456-538,540-569
+  s_0404b8eae6cf69::t_9692cda32e8298 777
+  s_0404b8eae6cf69::t_95f3761da0c188 889-905
+README.md
+  s_0404b8eae6cf69::t_4ae282abcdb786 227-245
+scripts/test-dashboard.py
+  s_0404b8eae6cf69::t_065bf2289846d8 163-240
+openspec/changes/archive/2026-10-07-dashboard-ux-2/.openspec.yaml
+  s_0404b8eae6cf69::t_01e6f9821799c5 1-2
+openspec/changes/archive/2026-10-07-dashboard-ux-2/design.md
+  s_557d0ae2a19405::t_91fa1c8b5dac04 1-108
+openspec/changes/archive/2026-10-07-dashboard-ux-2/specs/run-dashboard/spec.md
+  s_557d0ae2a19405::t_7d0c7c2aa59412 1-134
+openspec/changes/archive/2026-10-07-dashboard-ux-2/tasks.md
+  s_0404b8eae6cf69::t_5335a8c44c0fe6 1-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7f1a44196e7ac81e32bc3a90d9cdbdcbdda6e1b0",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_557d0ae2a19405": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee82dd981ffeqHpHSNxJgfvbjD",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    },
+    "s_81c67f7dfbb127": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee81a0e45ffe9ziipLO7bIMdAT",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
