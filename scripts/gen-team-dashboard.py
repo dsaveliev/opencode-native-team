@@ -138,11 +138,26 @@ def load_sessions(dir_, start_ms=None):
     return out
 
 
+def denial_of(state):
+    """Command excerpt if a tool state is a permission denial, else None.
+
+    Denials surface as error parts whose error text contains opencode's
+    "rule which prevents" wording (run-hardening D3)."""
+    if not isinstance(state, dict) or state.get("status") != "error":
+        return None
+    e = state.get("error")
+    if not (isinstance(e, str) and "rule which prevents" in e):
+        return None
+    inp = state.get("input") or {}
+    cmd = inp.get("command") if isinstance(inp, dict) else None
+    return (cmd or json.dumps(inp, ensure_ascii=False))[:120] or "?"
+
+
 def load_parts(session_ids, sessions):
-    """Recent text parts (work log), errored tool part counts, and the
-    latest errored tool calls as displayable entries."""
+    """Recent text parts (work log), errored tool part counts, the latest
+    errored tool calls, and permission denials."""
     if not session_ids:
-        return [], {}, []
+        return [], {}, [], []
     try:
         con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
         q = (
@@ -153,9 +168,9 @@ def load_parts(session_ids, sessions):
         rows = con.execute(q, session_ids).fetchall()
         con.close()
     except Exception:
-        return [], {}, []
+        return [], {}, [], []
     agent_of = {s["id"]: s["agent"] for s in sessions}
-    texts, err_tools, errs = [], {}, []
+    texts, err_tools, errs, denials = [], {}, [], []
     for sid, t, data in rows:
         try:
             d = json.loads(data)
@@ -168,6 +183,10 @@ def load_parts(session_ids, sessions):
         st = d.get("state") or {}
         if isinstance(st, dict) and st.get("status") == "error":
             tool = d.get("tool", "?")
+            cmdx = denial_of(st)
+            if cmdx is not None:
+                denials.append((t, agent_of.get(sid, "?"), tool, cmdx))
+                continue
             err_tools[tool] = err_tools.get(tool, 0) + 1
             try:
                 excerpt = json.dumps(st.get("input"), ensure_ascii=False)[:120]
@@ -176,7 +195,8 @@ def load_parts(session_ids, sessions):
             errs.append((t, agent_of.get(sid, "?"), tool, excerpt))
     texts.sort(key=lambda x: -x[0])
     errs.sort(key=lambda x: -x[0])
-    return texts[:40], err_tools, errs[:30]
+    denials.sort(key=lambda x: -x[0])
+    return texts[:40], err_tools, errs[:30], denials[:30]
 
 
 def load_tasks(dir_, start_ms=None):
@@ -575,7 +595,7 @@ def collect_data(dir_):
         sessions = load_sessions(dir_, start)
     else:
         sessions = load_sessions(dir_)
-    texts, err_tools, errs = load_parts([s["id"] for s in sessions], sessions)
+    texts, err_tools, errs, denials = load_parts([s["id"] for s in sessions], sessions)
     done, total, task_changes = load_tasks(dir_, start if have_state else None)
     commits_t, commits_m, commits_s = load_commits(dir_, start, have_state)
     elapsed = max(now_ms - start, 0)
@@ -752,6 +772,7 @@ def collect_data(dir_):
         "total": total,
         "commits_t": commits_t,
         "commits_m": commits_m,
+        "commits_s": commits_s,
         "elapsed": elapsed,
         "dirty": dirty,
         "agents": agents,
@@ -775,6 +796,10 @@ def collect_data(dir_):
         "err_html": err_html,
         "commits_list": commits_list,
         "_texts": texts,
+        "task_changes": task_changes,
+        "task_meta": task_meta,
+        "errs": errs,
+        "denials": denials,
     }
 
 
@@ -801,6 +826,73 @@ def state_json(d):
         "run_start_ms": d["start"],
         "sig": state_sig(d),
     }
+
+
+def render_run_log(d):
+    """RUN-LOG.md body (run-hardening D4) — same collect_data as the
+    dashboard, markdown instead of HTML, so the log and the page cannot
+    disagree. The orchestrator appends the retro section afterwards."""
+    hhmm = lambda ms: datetime.datetime.fromtimestamp(ms / 1000).strftime("%H:%M")
+    lines = []
+    ap = lines.append
+    ap(f"# Run log — {os.path.basename(d['dir'])}")
+    ap("")
+    ap(
+        f"- window: {hhmm(d['start'])} – {hhmm(d['now_ms'])}"
+        f"  (elapsed {fmt_ms(d['elapsed'])})"
+    )
+    ap(
+        f"- tasks: {d['done']}/{d['total']} · commits: {len(d['commits_t'])}"
+        f" · tokens in/out: {fmt_k(d['tin'])}/{fmt_k(d['tout'])}"
+    )
+    ap("")
+    ap("## Waves / sessions")
+    ap("| role | span | dur | title |")
+    ap("|---|---|---|---|")
+    for s in sorted(d["sessions"], key=lambda s: s["created"]):
+        ap(
+            f"| {s['agent']} | {hhmm(s['created'])}–{hhmm(s['updated'])} "
+            f"| {fmt_ms(max(s['updated'] - s['created'], 0))} "
+            f"| {s.get('title', '')[:60]} |"
+        )
+    if not d["sessions"]:
+        ap("| (no sessions in window) | | | |")
+    ap("")
+    ap("## Task timings")
+    for name, es in d["task_changes"]:
+        ap(f"### {name}")
+        for it in es:
+            if it[0] != "t" or it[2] != 0:
+                continue
+            _, done, _depth, title = it
+            m = d["task_meta"].get(task_token(title)) or {}
+            tail = ""
+            if done and m.get("dur") is not None:
+                tail = f" ({fmt_ms(m['dur'])})"
+            elif m.get("est") is not None:
+                tail = f" (~{fmt_ms(m['est'])})"
+            ap(f"- [{'x' if done else ' '}] {title}{tail}")
+    if not d["task_changes"]:
+        ap("(no openspec tasks in window)")
+    ap("")
+    ap("## Tool errors")
+    for t, a, tool, ex in d["errs"]:
+        ap(f"- {hhmm(t)} {a} `{tool}` — {ex[:100]}")
+    if not d["errs"]:
+        ap("- none")
+    ap("")
+    ap("## Permission denials")
+    for t, a, tool, cmdx in d["denials"]:
+        ap(f"- {hhmm(t)} {a} `{tool}` — {cmdx}")
+    if not d["denials"]:
+        ap("- none")
+    ap("")
+    ap("## Commits")
+    for m, s in zip(reversed(d["commits_m"]), reversed(d["commits_s"])):
+        ap(f"- `{s}` {m}")
+    if not d["commits_t"]:
+        ap("- none")
+    return "\n".join(lines) + "\n"
 
 
 def render_html(dir_, d):
@@ -1047,6 +1139,11 @@ if (sGet('dash-pause') === '1') {{
 
 
 def main(argv):
+    if len(argv) >= 3 and argv[1] == "--export":
+        # run log (run-hardening D4): markdown to stdout, caller picks the path
+        d = collect_data(os.path.abspath(argv[2]))
+        sys.stdout.write(render_run_log(d))
+        return 0
     if len(argv) >= 4 and argv[1] == "--cfg":
         # shell helper: print one resolved config key for a project dir
         defaults = {"mode": "ask", "open_browser": True, "refresh": 5, "port": 4731}

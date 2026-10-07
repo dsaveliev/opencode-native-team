@@ -28,8 +28,22 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AGENTS = ["orchestrator", "planner", "tester", "reviewer", "coder"]
 # subagents default to 40; reviewer carries the ctx_* permission matrix,
 # orchestrator carries dual-layer wiring + run-brief overlay with executed
-# recovery (SPEC.md, change long-running-recovery D6)
-LIMITS = {"orchestrator": 115, "reviewer": 46}
+# recovery (SPEC.md, change long-running-recovery D6). run-hardening D1
+# added the toolchain-cache allowlist (~10 lines) to tester/reviewer/
+# orchestrator on top of their previous limits.
+LIMITS = {"orchestrator": 140, "reviewer": 60, "tester": 55}
+# toolchain surface allowed outside the worktree (run-hardening D1):
+# language build/package caches — everything else stays denied
+CACHE_ALLOW = (
+    "~/go/pkg/mod/**",
+    "~/go/bin/**",
+    "~/Library/Caches/go-build/**",
+    "~/.cache/go-build/**",
+    "~/.npm/**",
+    "~/.cargo/**",
+    "~/.rustup/**",
+    "~/.cache/pip/**",
+)
 CYRILLIC = re.compile(r"[\u0400-\u04ff\u0500-\u052f]")
 CJK = re.compile(
     r"[\u2e80-\u2eff\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff"
@@ -118,9 +132,24 @@ def main():
         perm = fm.get(a, {}).get("permission", {})
         if perm.get("task") != {"*": "deny"}:
             err(f"{where}: permission.task must be {{'*': 'deny'}}")
-        if perm.get("external_directory") != "deny":
-            err(f"{where}: permission.external_directory must be scalar 'deny'")
-        for tool in ("edit", "external_directory", "webfetch"):
+        ext = perm.get("external_directory")
+        if a == "planner":
+            if ext != "deny":
+                err(f"{where}: permission.external_directory must be scalar 'deny'")
+        else:
+            # run-hardening D1: toolchain-cache allowlist over a deny star
+            if not isinstance(ext, dict) or ext.get("*") != "deny":
+                err(f"{where}: external_directory must be a map with '*'->deny")
+            else:
+                for pat in CACHE_ALLOW:
+                    if ext.get(pat) != "allow":
+                        err(f"{where}: external_directory cache allow missing '{pat}'")
+                extra = set(ext) - {"*"} - set(CACHE_ALLOW)
+                if extra:
+                    err(
+                        f"{where}: external_directory has non-cache allows: {sorted(extra)}"
+                    )
+        for tool in ("edit", "webfetch"):
             if tool in perm and not isinstance(perm[tool], str):
                 err(
                     f"{where}: permission.{tool} must be scalar, got {type(perm[tool]).__name__}"
@@ -148,10 +177,31 @@ def main():
         )
     if set(task_perm.values()) != {"allow"}:
         err("agents/orchestrator.md: task allow-list values must all be 'allow'")
-    if o.get("external_directory") != "deny":
-        err(
-            "agents/orchestrator.md: permission.external_directory must be scalar 'deny'"
-        )
+    oext = o.get("external_directory")
+    if not isinstance(oext, dict) or oext.get("*") != "deny":
+        err("agents/orchestrator.md: external_directory must be a map with '*'->deny")
+    else:
+        for pat in CACHE_ALLOW:
+            if oext.get(pat) != "allow":
+                err(f"agents/orchestrator.md: cache allow missing '{pat}'")
+    # run-hardening D2: explicit bash ruleset — commits work under --auto,
+    # destructive/remote git stays denied
+    obash = o.get("bash", {})
+    if obash.get("*") != "allow":
+        err("agents/orchestrator.md: bash['*'] must be 'allow' (headless commits)")
+    for pat in (
+        "git push*",
+        "git reset*",
+        "git revert*",
+        "git stash*",
+        "git rebase*",
+        "git am*",
+        "git cherry-pick*",
+        "git checkout -- *",
+        "git clean*",
+    ):
+        if obash.get(pat) != "deny":
+            err(f"agents/orchestrator.md: bash deny missing for '{pat}'")
     if fm.get("orchestrator", {}).get("mode") != "primary":
         err("agents/orchestrator.md: mode must be 'primary'")
     if str(fm.get("reviewer", {}).get("temperature")) != "0.1":
@@ -260,6 +310,14 @@ def main():
             "opencode.json.example: top-level edit allow missing — headless "
             "runs cannot write files"
         )
+    # run-hardening D1: example mirrors the contracts' cache allowlist
+    ext = top.get("external_directory", {})
+    if not isinstance(ext, dict) or ext.get("*") != "deny":
+        err("opencode.json.example: external_directory map with '*'->deny missing")
+    else:
+        for pat in CACHE_ALLOW:
+            if ext.get(pat) != "allow":
+                err(f"opencode.json.example: cache allow missing '{pat}'")
     rev = cfg.get("agent", {}).get("reviewer", {}).get("permission", {}).get("bash", {})
     if not any("test" in k for k in rev):
         err(

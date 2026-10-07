@@ -3,7 +3,16 @@ description: Developer — TDD implementation per the plan
 mode: subagent
 permission:
   task: { "*": "deny" }
-  external_directory: deny
+  external_directory:
+    "*": deny
+    "~/go/pkg/mod/**": allow
+    "~/go/bin/**": allow
+    "~/Library/Caches/go-build/**": allow
+    "~/.cache/go-build/**": allow
+    "~/.npm/**": allow
+    "~/.cargo/**": allow
+    "~/.rustup/**": allow
+    "~/.cache/pip/**": allow
   edit: allow
   ctx_upgrade: deny
   ctx_purge: deny

@@ -240,9 +240,41 @@ session DB + git + openspec tasks, zero dependencies.
   currently being worked on is highlighted and shows live elapsed.
 - Interaction survives refreshes: expanded rows (log, commits, tasks) are
   remembered per row and re-opened after each automatic repaint; work-log
-  history older than the newest 40 entries is kept in the browser's
-  localStorage (per project + run window, cap 500) so a page reload does
-  not lose it. No dashboard data is ever written into the observed project.
+   history older than the newest 40 entries is kept in the browser's
+   localStorage (per project + run window, cap 500) so a page reload does
+   not lose it. No dashboard data is ever written into the observed project.
+
+## Run Logs and Retro
+
+Every run ends with a markdown run log exported by the same data path as
+the dashboard (`scripts/gen-team-dashboard.py --export <dir>`), so the log
+and the page can never disagree:
+
+- `/team-change` writes `openspec/changes/<change>/RUN-LOG.md`; `/team`
+  writes `tmp/run-logs/<date>-team/RUN-LOG.md` (gitignored).
+- Contents: run window, per-wave session table with durations, task
+  timings (actual for done, `~` projections for the rest), tool errors,
+  **permission denials** (command + agent), commits, token totals.
+- The orchestrator then appends a `## Recommendations` section: friction
+  observed during the run (slow tasks, retries, denials) translated into
+  concrete improvement suggestions for this framework — the feedback loop
+  that tunes prompts, permissions, and wave sizing.
+
+## Permissions (toolchain access)
+
+Team agents deny every external directory except the language toolchain
+surface (Go module/build caches and `~/go/bin`, npm, cargo, rustup, pip
+caches) — `go mod tidy`, `go get`, `npm install`, `cargo fetch` work
+inside subagents while foreign project directories stay denied. The
+orchestrator carries an explicit bash ruleset: allow by default, deny
+destructive/remote git (`push`, `reset`, `revert`, `rebase`, `stash`,
+`am`, `cherry-pick`, `checkout --`, `clean`) — so its wave commits run
+headless under `--auto`. `examples/opencode.json.example` mirrors the same
+allowlist for project-mode installs. For your own (non-team) sessions on
+this machine, extend `~/.config/opencode/opencode.json`: add module
+managers (`go mod*`, `go get*`, `npm install*`, `npm ci*`,
+`pip install -r*`) to the bash allowlist and the same cache entries to
+`external_directory` — then restart opencode.
 
 ## Stack Skills (per-project extensions)
 

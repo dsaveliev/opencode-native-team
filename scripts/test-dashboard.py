@@ -161,6 +161,22 @@ try:
     check("archive view counts old change", ">42/45<" in page2)
     check("archive view exit 0", r2.returncode == 0)
 
+    # run-hardening: --export renders a complete markdown run log
+    r3 = subprocess.run(
+        [sys.executable, GEN, "--export", fx], capture_output=True, text=True
+    )
+    check("export exit 0", r3.returncode == 0)
+    for section in (
+        "# Run log",
+        "## Waves / sessions",
+        "## Task timings",
+        "## Tool errors",
+        "## Permission denials",
+        "## Commits",
+    ):
+        check(f"export section: {section}", section in r3.stdout)
+    check("export has task titles", "engine todo thing" in r3.stdout)
+
     # --- dashboard-ux-2: stage model, task tree, panels, anchors ---
     # macro stage from task progress: 2/5 done -> code (never role-derived)
     check("macro stage=code from progress", 'class="step cur">code' in page)
@@ -238,6 +254,21 @@ try:
     check("pending task gets est = median", meta["1.2"]["est"] == 1_200_000)
     check("active task flagged", meta["1.2"]["act"] is True)
     check("median value", med == 1_200_000)
+    # denial detection (run-hardening D3): exact opencode error wording
+    denial_state = {
+        "status": "error",
+        "error": "The user has specified a rule which prevents you from "
+        "using this specific tool call. Here are some of the relevant rules",
+        "input": {"command": "go mod tidy && go test ./..."},
+    }
+    check(
+        "denial detected with command",
+        gtm.denial_of(denial_state) == "go mod tidy && go test ./...",
+    )
+    check(
+        "plain error is not a denial",
+        gtm.denial_of({"status": "error", "error": "exit status 1"}) is None,
+    )
 finally:
     shutil.rmtree(fx, ignore_errors=True)
 

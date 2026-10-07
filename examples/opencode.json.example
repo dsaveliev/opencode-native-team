@@ -3,7 +3,18 @@
   "plugin": ["context-mode", "@dietrichgebert/ponytail"],
   "permission": {
     "edit": { "*": "allow" },
-    "bash": { "*": "allow" }
+    "bash": { "*": "allow" },
+    "external_directory": {
+      "*": "deny",
+      "~/go/pkg/mod/**": "allow",
+      "~/go/bin/**": "allow",
+      "~/Library/Caches/go-build/**": "allow",
+      "~/.cache/go-build/**": "allow",
+      "~/.npm/**": "allow",
+      "~/.cargo/**": "allow",
+      "~/.rustup/**": "allow",
+      "~/.cache/pip/**": "allow"
+    }
   },
   "agent": {
     "coder": { "model": "zhipuai-coding-plan/glm-5.3" },

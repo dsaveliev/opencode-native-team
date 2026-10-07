@@ -22,6 +22,18 @@ refresh, open_browser, port):
 - On finish — success or failure: `bash <resolved script> stop "$(pwd)"`
   (stops the server; the final snapshot stays at tmp/team-dashboard.html).
 
+Run log (final step, before the dashboard stop):
+- Resolve GEN the same way as the dashboard script's directory:
+  `.opencode/scripts/gen-team-dashboard.py` in the project, else
+  `~/.config/opencode/scripts/gen-team-dashboard.py`; if neither exists,
+  skip silently.
+- Export the log:
+  `mkdir -p tmp/run-logs/$(date +%F)-team && python3 "$GEN" --export "$(pwd)" > tmp/run-logs/$(date +%F)-team/RUN-LOG.md`
+- Then APPEND a `## Recommendations` section to that RUN-LOG.md yourself:
+  friction observed this run (slow tasks, retries, permission denials,
+  repeated tool errors) translated into concrete, actionable improvement
+  suggestions for the team framework (prompts, permissions, wave sizing).
+
 Assignment:
 
 $ARGUMENTS

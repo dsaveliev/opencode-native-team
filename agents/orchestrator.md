@@ -2,7 +2,27 @@
 description: "Team lead — openspec cycle + skill mapping + evidence-based tasks"
 mode: primary
 permission:
-  external_directory: deny
+  external_directory:
+    "*": deny
+    "~/go/pkg/mod/**": allow
+    "~/go/bin/**": allow
+    "~/Library/Caches/go-build/**": allow
+    "~/.cache/go-build/**": allow
+    "~/.npm/**": allow
+    "~/.cargo/**": allow
+    "~/.rustup/**": allow
+    "~/.cache/pip/**": allow
+  bash:
+    "*": "allow"
+    "git push*": "deny"
+    "git reset*": "deny"
+    "git revert*": "deny"
+    "git stash*": "deny"
+    "git rebase*": "deny"
+    "git am*": "deny"
+    "git cherry-pick*": "deny"
+    "git checkout -- *": "deny"
+    "git clean*": "deny"
   task:
     "*": "deny"
     "planner": "allow"
