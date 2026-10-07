@@ -1,0 +1,53 @@
+install.sh
+  s_0404b8eae6cf69::t_a4c72114abb4e5 34,38,41-58
+scripts/gen-team-dashboard.py
+  s_0404b8eae6cf69::t_92c4ec38375e34 797
+  s_0404b8eae6cf69::t_0d12999ca91690 757-784
+  s_0404b8eae6cf69::t_2fa8ca0d00e025 2,10-18,36-49,52-61,64,70-81,84-85,102,110,139,163,173,199,204,219,221,235,257,345,350,356,363,368,372,374,379,388,399,406-407,409-444,447-537,540-542,545-549,552-664,666,714,720,726,805-830,832-833
+examples/team-dashboard.json
+  s_0404b8eae6cf69::t_474ce8f35768de 2,6
+README.md
+  s_0404b8eae6cf69::t_aca8fcc0b9f03b 200-212,215-226
+scripts/validate.py
+  s_0404b8eae6cf69::t_461ddf6cd02840 362
+  s_0404b8eae6cf69::t_dca536da84a1f4 323
+  s_0404b8eae6cf69::t_7c3d35f9bd5b49 334-340,346-352
+bin/team-dash
+  s_0404b8eae6cf69::t_3163be147fca57 1-61
+scripts/test-dashboard-adoption.py
+  s_0404b8eae6cf69::t_959a8384f93089 1-48,50-99
+  s_0404b8eae6cf69::t_3d27fe9c42b608 49
+.gitignore
+  s_0404b8eae6cf69::t_c6b4b068bff65d 3-4
+scripts/dashboard_server.py
+  s_0404b8eae6cf69::t_509a4501420551 80
+  s_0404b8eae6cf69::t_82c1d3c7b9edee 1-79,81-140
+commands/team-change.md
+  s_0404b8eae6cf69::t_57a389fba97813 6-11,19-21,23
+openspec/specs/run-dashboard/spec.md
+  s_0404b8eae6cf69::t_9c11069840bc72 1-149
+commands/team.md
+  s_0404b8eae6cf69::t_c9c7743105dd7c 6-11,19-21,23
+scripts/team-dashboard.sh
+  s_0404b8eae6cf69::t_67463c3410b4e1 2-10,13-15,20,23,28,31-32,35,40,44-63,70,72-73,76,78-85,89-91,93-96,100,102,106
+openspec/changes/archive/2026-10-07-dashboard-serve/.openspec.yaml
+  s_0404b8eae6cf69::t_787d31dc35b73d 1-2
+openspec/changes/archive/2026-10-07-dashboard-serve/tasks.md
+  s_0404b8eae6cf69::t_ef49cf738767dd 1-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "078c9672fe2081f7503e4a9b4117cb2af3235297",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
