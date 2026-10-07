@@ -116,6 +116,15 @@ if [ $GLOBAL = 0 ] && [ ! -f "${TARGET}/.opencode/opencode.json" ] && [ -f "${SC
   echo "  ✓ opencode.json (example — customize models and test commands for your language)"
 fi
 
+# Merge recommended plugin entries (context-mode, @dietrichgebert/ponytail)
+# into the project config — idempotent, never overwrites existing fields.
+# NATIVE_TEAM_PLUGINS=none opts out (removes/skips the entries).
+# Project mode only: global installs leave config per-project.
+# Requires python3 (same prerequisite as scripts/validate.py).
+if [ $GLOBAL = 0 ] && [ -f "${TARGET}/.opencode/opencode.json" ]; then
+  python3 "${SCRIPT_DIR}/scripts/integrate-plugins.py" "${TARGET}"
+fi
+
 echo ""
 if [ $GLOBAL = 1 ]; then
   echo "Team installed globally. In any project run opencode and use:"
