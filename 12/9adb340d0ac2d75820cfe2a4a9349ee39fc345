@@ -1,0 +1,81 @@
+openspec/changes/dashboard-session-control/proposal.md
+  s_0404b8eae6cf69::t_05c2d402cb9fb0 1-24,32-58
+  s_0404b8eae6cf69::t_0229dc22f93f0e 25-31
+openspec/changes/dashboard-session-control/specs/run-dashboard/spec.md
+  s_0404b8eae6cf69::t_16a92527ae06b5 1-4,37-130
+  s_0404b8eae6cf69::t_d5ac51d339f87a 131-150
+  s_0404b8eae6cf69::t_e73acd3c622352 5-36
+openspec/changes/dashboard-session-control/tasks.md
+  s_0404b8eae6cf69::t_938cb9499fcb71 1-58
+  s_0404b8eae6cf69::t_3b45b2c1ef9644 59-79
+README.md
+  s_0404b8eae6cf69::t_39a5c03b3b1f0f 240-247
+  s_0404b8eae6cf69::t_dd74eefd132ff8 220-227
+  s_0404b8eae6cf69::t_34fc5d670d0549 239
+scripts/test-dashboard.py
+  s_0404b8eae6cf69::t_98f14a6ebb9d72 238-242
+  s_0404b8eae6cf69::t_2d592f4f1d5c0f 331-339
+  s_0404b8eae6cf69::t_5135f9b0f11505 32
+  s_0404b8eae6cf69::t_29a4d3b620794b 216-237,243-283,299
+  s_0404b8eae6cf69::t_24bbfcaf8b56e5 182-203,206,212-215,300-303
+  s_0404b8eae6cf69::t_51a5b9e03b6318 405-414
+  s_0404b8eae6cf69::t_04efc083d43543 204-205,209-211
+  s_0404b8eae6cf69::t_d41dfcd6989f7b 207-208
+  s_0404b8eae6cf69::t_5d6073d44ea837 69,71-72
+  s_0404b8eae6cf69::t_723509e733a185 284-298
+openspec/changes/dashboard-session-control/RUN-LOG.md
+  s_0404b8eae6cf69::t_060f187e6b7f4f 1-2,5-11,13-16,26,39,54,65,76,88,96,108,120-121,124-186
+  s_0404b8eae6cf69::t_426c84b476cd41 3-4,12,17-25,27-38,40-53,55-64,66-75,77-87,89-95,97-107,109-119,122-123
+openspec/changes/dashboard-session-control/.openspec.yaml
+  s_0404b8eae6cf69::t_c7ee9aa66c0b63 1-2
+bin/team-dash
+  s_0404b8eae6cf69::t_04286b0410ce92 15
+  s_0404b8eae6cf69::t_b5d13b72552db9 2-7,14,16,20,22,25,27-28,31,34
+openspec/changes/dashboard-session-control/design.md
+  s_0404b8eae6cf69::t_4755b0b9f76cb7 22-23,29-30
+  s_0404b8eae6cf69::t_e8cf9b44679305 81-102
+  s_0404b8eae6cf69::t_be87c4c7e1cb13 1-21,24-28,31-80,103-113
+scripts/validate.py
+  s_0404b8eae6cf69::t_4d81deb13505df 53-55
+scripts/team-dashboard.sh
+  s_0404b8eae6cf69::t_184aa7ef853ba0 126-136
+  s_0404b8eae6cf69::t_f62424c4fe3784 49-55,59-64,121-125,137-139
+  s_0404b8eae6cf69::t_c639862ae4ae2c 70-97,108-117
+  s_0404b8eae6cf69::t_69ec0d89776635 118
+scripts/gen-team-dashboard.py
+  s_0404b8eae6cf69::t_46de5758b9cd11 1063-1064
+  s_0404b8eae6cf69::t_e1d53ca1410d24 1180-1191,1208-1231
+  s_0404b8eae6cf69::t_efc6803080b99b 532-533,535
+  s_0404b8eae6cf69::t_19f6bfe08a4b1a 735-756,764-770
+  s_0404b8eae6cf69::t_5e37596c654ca5 912-913,921-922
+  s_0404b8eae6cf69::t_bf4d90e78573f5 1110-1112
+  s_0404b8eae6cf69::t_7d4f976c3b65e6 1019
+  s_0404b8eae6cf69::t_43795567885a77 1059-1062,1065-1066
+  s_0404b8eae6cf69::t_d6e2a22f3187ed 1192-1207
+  s_0404b8eae6cf69::t_5832e1f0ea96e5 479-531,534,536-551
+  s_0404b8eae6cf69::t_d2736603975d61 757-763
+scripts/dashboard_server.py
+  s_0404b8eae6cf69::t_37eb59069456b7 132-146,173-185,190,193-197
+  s_0404b8eae6cf69::t_31c48195896e2c 186-189,191-192
+  s_0404b8eae6cf69::t_b6c48d9a27f979 131,147-172
+  s_0404b8eae6cf69::t_2a6e396b5e1a26 64-66,84-109
+  s_0404b8eae6cf69::t_f7fda952ad37bd 4,25-26
+  s_0404b8eae6cf69::t_8501e6345e01ff 5-13
+  s_0404b8eae6cf69::t_8a32ceafe5fa30 67-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "129adb340d0ac2d75820cfe2a4a9349ee39fc345",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
