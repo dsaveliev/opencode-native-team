@@ -1,0 +1,49 @@
+SPEC.md
+  s_0404b8eae6cf69::t_c3062d59a5e6a8 101,103
+install.sh
+  s_0404b8eae6cf69::t_410f06897ffef5 40-43
+scripts/gen-run-brief.py
+  s_0404b8eae6cf69::t_32289941080bdb 90-96
+.github/workflows/ci.yml
+  s_0404b8eae6cf69::t_33ec57b2368ce5 20-22
+openspec/changes/harness-contract-consistency/design.md
+  s_0404b8eae6cf69::t_d44277d8b89618 1-91
+scripts/test-gen-run-brief.py
+  s_0404b8eae6cf69::t_a2dd63ff2f37ba 77-110,115-116
+openspec/changes/harness-contract-consistency/specs/plugin-integrations/spec.md
+  s_0404b8eae6cf69::t_c3094bf4a1e329 7-35
+  s_0404b8eae6cf69::t_26a4c8dfefe679 1-6,36-53
+commands/team-brief.md
+  s_0404b8eae6cf69::t_29e6f2478dbc52 7-11
+openspec/changes/dashboard-session-control/proposal.md
+  s_0404b8eae6cf69::t_47b9eff9fff533 56-62
+scripts/validate.py
+  s_0404b8eae6cf69::t_4b34b96cd7092b 221-265
+  s_0404b8eae6cf69::t_f66f3cbe36efa8 465-471
+openspec/changes/harness-contract-consistency/tasks.md
+  s_0404b8eae6cf69::t_b0e26aa8565fc2 5,11,16,20,24,27,30,33,37,43-48
+  s_0404b8eae6cf69::t_5ec11a0ff34905 1-4,6-10,12-15,17-19,21-23,25-26,28-29,31-32,34-36,38-42
+openspec/changes/harness-contract-consistency/proposal.md
+  s_0404b8eae6cf69::t_792390c3c86e66 1-58
+scripts/test-dashboard-adoption.py
+  s_0404b8eae6cf69::t_0d5480fb17b32d 67,70-72
+  s_0404b8eae6cf69::t_98263dcf8867ba 43-44,50
+openspec/changes/harness-contract-consistency/.openspec.yaml
+  s_0404b8eae6cf69::t_93eae6f91bd57c 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dc5c81d8b4fc9cfe5d56e7d0a1f2021293594fbc",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
