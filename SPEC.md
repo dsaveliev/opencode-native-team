@@ -98,9 +98,9 @@ permission:
 ---
 ```
 
-Body: concise, structured, no filler. Contract limits: orchestrator ≤ 115 lines
+Body: concise, structured, no filler. Contract limits: orchestrator <= 140 lines
 (dual-layer wiring + run-brief overlay with executed recovery);
-subagents ≤ 40 lines each.
+reviewer <= 60 lines; tester <= 55 lines; subagents <= 40 lines each.
 
 ## Testing Strategy
 

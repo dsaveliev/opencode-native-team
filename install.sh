@@ -37,6 +37,10 @@ cp "${SCRIPT_DIR}/scripts/gen-team-dashboard.py" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/team-dashboard.sh" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/dashboard_server.py" "${DASH_DIR}/"
 cp "${SCRIPT_DIR}/scripts/gen-run-brief.py" "${DASH_DIR}/"
+# The brief generator resolves ../examples/RUN-BRIEF.md relative to itself —
+# ship the template with it (global + project modes)
+mkdir -p "${DASH_DIR}/../examples"
+cp "${SCRIPT_DIR}/examples/RUN-BRIEF.md" "${DASH_DIR}/../examples/RUN-BRIEF.md"
 chmod +x "${DASH_DIR}/team-dashboard.sh"
 echo "  ✓ dashboard (serve mode + generator + brief) scripts (${DASH_DIR})"
 

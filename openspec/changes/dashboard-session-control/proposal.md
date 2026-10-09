@@ -53,6 +53,12 @@ on for one narrow, verifiable action: stopping a hosting opencode process.
   `scripts/gen-team-dashboard.py` (process discovery, panel render, page
   JS), `scripts/test-dashboard.py`, `scripts/validate.py`, `README.md`.
 - Behavioral: the dashboard page gains an actionable panel; `POST` is no
-  longer blanket-405. No config, port, launcher or window semantics change.
+- Behavioral: the dashboard page gains an actionable panel; `POST` is no
+  longer blanket-405. The launcher is part of this change (single-dashboard
+  pivot): `team-dash` drops its interactive picker, `serve` re-points a
+  running dashboard instead of conflicting between projects, and ownership
+  of the machine-wide server moves from per-project pidfiles to one
+  machine-level record (see design.md D6/D7). Config keys, port semantics
+  and window adoption are unchanged.
 - Risk accepted: SIGTERM to an opencode process ends all sessions hosted
   by that process — the confirmation dialog states this explicitly.

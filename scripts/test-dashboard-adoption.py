@@ -40,13 +40,14 @@ try:
     con.execute(
         "CREATE TABLE session (id TEXT, agent TEXT, model TEXT, directory TEXT, "
         "time_created INTEGER, time_updated INTEGER, parent_id TEXT, "
-        "tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER)"
+        "tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, "
+        "title TEXT)"
     )
     proj = os.path.join(tmp, "proj")
     os.makedirs(proj)
     now = int(time.time() * 1000)
     con.execute(
-        "INSERT INTO session VALUES ('s1','orchestrator','{}',?,?,?,NULL,1,1,1)",
+        "INSERT INTO session VALUES ('s1','orchestrator','{}',?,?,?,NULL,1,1,1,'')",
         (proj, now - 3600_000, now - 30_000),
     )
     con.commit()
@@ -63,8 +64,12 @@ try:
 
     # 2. non-empty declared window is kept verbatim (no re-adoption churn)
     json.dump({"start_ms": now - 7200_000}, open(sp, "w"))
+    sess2 = gtm.load_sessions(proj, now - 7200_000)
     start2, have2 = gtm.adopt_window(proj, now)
     check("declared window kept when non-empty", have2 and start2 == now - 7200_000)
+    # schema parity: load_sessions selects `title`; a fixture drift fails the
+    # count loudly instead of passing "non-empty" on a swallowed SQL error
+    check("fixture schema parity (1 session readable)", len(sess2) == 1)
 
     # 3. nothing adoptable (no active sessions in 12h) -> window kept
     con = sqlite3.connect(db)

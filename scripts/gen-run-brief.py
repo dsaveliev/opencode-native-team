@@ -87,12 +87,13 @@ def collect_interactive(full):
 
 
 def scope_lines(rows):
-    lines = [
-        MINIMAL_MARKERS["scope_row"] if r.startswith("./=") else f"| {p:<8} | {a} |"
-        for r in rows
-        for p, a in [r.split("=", 1)]
-    ]
-    return "\n".join(lines)
+    # operator access is data, verbatim (dashboard hardening: no silent
+    # widening of a requested restriction, e.g. ./=read must stay read)
+    out = []
+    for r in rows:
+        p, a = r.split("=", 1)
+        out.append(f"| ./       | {a} |" if p == "./" else f"| {p:<8} | {a} |")
+    return "\n".join(out)
 
 
 def build_minimal(a):

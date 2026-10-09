@@ -218,6 +218,51 @@ def main():
             err(f"agents/{a}.md: {n} lines > limit {limit}")
     s.ok("line limits hold")
 
+    s = Step("[3c] SPEC.md limits match the enforced LIMITS (drift guard)")
+    spec_text = open("SPEC.md", encoding="utf-8").read()
+    said = {}
+    for name in ("orchestrator", "reviewer", "tester", "subagents"):
+        m = re.search(rf"{name} <= (\d+) lines", spec_text)
+        if not m:
+            err(f"SPEC.md: limit line for '{name}' missing or not extractable")
+        else:
+            said[name] = int(m.group(1))
+    if len(said) == 4:
+        if said["orchestrator"] != LIMITS["orchestrator"]:
+            err(
+                f"SPEC.md orchestrator limit {said['orchestrator']} != enforced "
+                f"{LIMITS['orchestrator']}"
+            )
+        if said["reviewer"] != LIMITS["reviewer"]:
+            err(
+                f"SPEC.md reviewer limit {said['reviewer']} != enforced "
+                f"{LIMITS['reviewer']}"
+            )
+        if said["tester"] != LIMITS["tester"]:
+            err(f"SPEC.md tester limit {said['tester']} != enforced {LIMITS['tester']}")
+        if said["subagents"] != 40:
+            err(f"SPEC.md subagents limit {said['subagents']} != enforced 40")
+    s.ok("SPEC.md limits match")
+
+    s = Step("[3d] run-brief template ships with its generator")
+    rb_src = open("scripts/gen-run-brief.py", encoding="utf-8").read()
+    if '"..", "examples", "RUN-BRIEF.md"' not in rb_src:
+        err(
+            "scripts/gen-run-brief.py: template resolution shape changed — "
+            "update the 3d check"
+        )
+    tpl = os.path.normpath(
+        os.path.join(ROOT, "scripts", "..", "examples", "RUN-BRIEF.md")
+    )
+    if not os.path.exists(tpl):
+        err(f"run-brief template missing at resolved path: {tpl}")
+    if "examples/RUN-BRIEF.md" not in open("install.sh", encoding="utf-8").read():
+        err(
+            "install.sh: examples/RUN-BRIEF.md not shipped — the installed "
+            "generator resolves it relative to itself"
+        )
+    s.ok("template resolvable and shipped")
+
     s = Step("[3b] context-mode permission matrix (plugin-integrations spec)")
     # deny admin/destructive meta tools for every role; read-only roles also
     # deny sandbox-exec/network/index tools (they bypass bash/webfetch denies);
@@ -417,6 +462,13 @@ def main():
     )
     if r.returncode != 0:
         err("integrate-plugins behavioral test failed:\n" + r.stdout[-800:])
+    r = subprocess.run(
+        [sys.executable, "scripts/test-gen-run-brief.py"],
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        err("gen-run-brief behavioral test failed:\n" + r.stdout[-800:])
     for sh in (
         "install.sh",
         "bin/team-dash",

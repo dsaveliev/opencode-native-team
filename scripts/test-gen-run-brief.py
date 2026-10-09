@@ -74,8 +74,43 @@ def t_full_coverage():
     print("PASS full coverage")
 
 
+def t_scope_verbatim():
+    # regression (harness-contract-consistency D4): operator access is data.
+    # A './=read' request must stay read — the old code emitted the
+    # canonical write row, silently widening the restriction.
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, "RUN-BRIEF.md")
+        r = run(
+            [
+                "--non-interactive",
+                "--output",
+                out,
+                "--name",
+                "scoped",
+                "--mode",
+                "unattended",
+                "--mission",
+                "TASK.md",
+                "--scope",
+                "./=read",
+                "--retries",
+                "3",
+                "--fence",
+                "nothing",
+            ]
+        )
+        assert r.returncode == 0, r.stderr
+        t = open(out).read()
+        assert "| ./       | read |" in t, "operator read scope not preserved"
+        assert "| ./       | write, branch feat/* only |" not in t, (
+            "canonical write row leaked into an operator-specified scope"
+        )
+    print("PASS scope verbatim")
+
+
 if __name__ == "__main__":
     t_quick_shape()
     t_reproducible()
     t_full_coverage()
-    print("3 PASS")
+    t_scope_verbatim()
+    print("4 PASS")
