@@ -209,28 +209,34 @@ try:
         with urllib.request.urlopen(f"http://127.0.0.1:{TPORT}/state", timeout=8) as r:
             sproj = json.loads(r.read()).get("project")
         check("re-pointed /state shows project2", sproj == os.path.basename(fx2))
+        # D4: one machine-level owner record (pid + observed project)
+        import json as _json
+
+        _owner = os.path.join(
+            os.path.expanduser("~"),
+            ".local",
+            "state",
+            "opencode-team",
+            f"team-dashboard-{TPORT}.json",
+        )
         check(
-            "serve B leaves no stale pidfile",
-            not os.path.exists(os.path.join(fx2, "tmp", "team-dashboard.pid")),
+            "owner record points to project2",
+            os.path.exists(_owner) and _json.load(open(_owner)).get("dir") == fx2,
         )
 
         # control plane battery (dashboard-session-control D2/D3)
-        import json as _json
         import urllib.error
         import urllib.request
 
-        def post(url, body=None, ctype="application/json"):
+        def post(url, body=None, ctype="application/json", extra=None):
             data = (
                 body
                 if isinstance(body, bytes)
                 else (_json.dumps(body).encode() if body is not None else b"{}")
             )
-            req = urllib.request.Request(
-                url,
-                data=data,
-                method="POST",
-                headers={"Content-Type": ctype} if ctype else {},
-            )
+            headers = {"Content-Type": ctype} if ctype else {}
+            headers.update(extra or {})
+            req = urllib.request.Request(url, data=data, method="POST", headers=headers)
             try:
                 with urllib.request.urlopen(req, timeout=10) as r:
                     return r.status, _json.loads(r.read() or b"{}")
@@ -242,6 +248,12 @@ try:
                     return e.code, {"_raw": raw.decode("utf-8", "replace")}
 
         B = f"http://127.0.0.1:{TPORT}"
+        # D2: localhost Host only, before the body is read
+        st, j = post(B + "/control/stop", {"pid": 1}, extra={"Host": "evil.example"})
+        check(
+            "foreign Host refused 403",
+            st == 403 and "non-localhost" in j.get("error", ""),
+        )
         st, j = post(B + "/control/stop", b"pid=1", "text/plain")
         check(
             "non-JSON refused 400", st == 400 and "Content-Type" in j.get("error", "")
@@ -263,17 +275,45 @@ try:
         check("argv0 fake refused 403", st == 403)
         fk.kill()
         fk.wait()
+        # D3: executable identity — a renamed binary is refused even with
+        # an opencode argv[0] (the symlink fixture inverted)
         ocdir = tempfile.mkdtemp(prefix="dash-oc-")
+        ocdir2 = ""
         oclink = os.path.join(ocdir, "opencode")
         os.symlink("/bin/sleep", oclink)
         oc = subprocess.Popen([oclink, "30"])
         time.sleep(0.3)
         st, j = post(B + "/control/stop", {"pid": oc.pid})
         check(
-            "verified opencode stop 200",
-            st == 200 and j.get("ok") is True and j.get("alive_after") is False,
+            "renamed binary (symlink) refused 403",
+            st == 403 and "not an opencode" in j.get("error", ""),
         )
-        oc.wait(timeout=5)
+        oc.kill()
+        oc.wait()
+        # a real executable NAMED opencode passes (macOS kills copies of
+        # signed binaries via AMFI, so compile a genuine one instead)
+        if shutil.which("cc"):
+            ocdir2 = tempfile.mkdtemp(prefix="dash-oc-real-")
+            occopy = os.path.join(ocdir2, "opencode")
+            with open(os.path.join(ocdir2, "m.c"), "w") as f:
+                f.write("int main(void){for(;;);}\n")
+            built = subprocess.run(
+                ["cc", "-o", occopy, os.path.join(ocdir2, "m.c")],
+                capture_output=True,
+            )
+            if built.returncode == 0:
+                oc2 = subprocess.Popen([occopy])
+                time.sleep(0.3)
+                st, j = post(B + "/control/stop", {"pid": oc2.pid})
+                check(
+                    "real opencode-named executable stopped 200",
+                    st == 200 and j.get("ok") is True,
+                )
+                oc2.wait(timeout=5)
+            else:
+                check("real opencode-named executable stopped 200", False)
+        else:
+            print("  skip real executable fixture (no cc on PATH)")
         st, j = post(B + "/control/stop", {"pid": 999999})
         check(
             "unknown pid 403",
@@ -281,7 +321,7 @@ try:
         )
         st, _j = post(B + "/other", {"pid": 1})
         check("other POST 405", st == 405)
-        # observation switching (D6 single-dashboard pivot)
+        # observation switching (single-dashboard pivot)
         st, j = post(B + "/control/switch", {"dir": fx2})
         check("switch 200", st == 200 and j.get("ok") is True)
         html2 = urllib.request.urlopen(B + "/", timeout=8).read().decode()
@@ -296,7 +336,30 @@ try:
         )
         st, j = post(B + "/control/switch", {"pid": 5})
         check("switch bad body 400", st == 400)
+        # D4: switch back A <- B, then stop from B's directory
+        ra2 = subprocess.run(
+            ["bash", TDSH, "serve", fx], capture_output=True, text=True, timeout=30
+        )
+        check(
+            "serve A switches back from B",
+            ra2.returncode == 0 and "re-pointed" in ra2.stdout,
+        )
+        with urllib.request.urlopen(f"http://127.0.0.1:{TPORT}/state", timeout=8) as r:
+            back = json.loads(r.read()).get("project")
+        check("switched back to project1", back == os.path.basename(fx))
+        rs = subprocess.run(
+            ["bash", TDSH, "stop", fx2], capture_output=True, text=True, timeout=30
+        )
+        check(
+            "stop from project2 dir stops the singleton",
+            rs.returncode == 0 and "stopped (pid" in rs.stdout,
+        )
+        check(
+            "owner record removed after stop",
+            not os.path.exists(_owner),
+        )
         shutil.rmtree(ocdir, ignore_errors=True)
+        shutil.rmtree(ocdir2, ignore_errors=True)
     finally:
         subprocess.run(["bash", TDSH, "stop", fx], capture_output=True, timeout=30)
         shutil.rmtree(fx2, ignore_errors=True)
@@ -411,6 +474,17 @@ try:
         and not RX.search("opencode-fake sleep 30")
         and not RX.search("myopencode x")
         and not RX.search("python opencode.py"),
+    )
+    # script-context escaping (dashboard-control-hardening D1)
+    poisoned = "</script><script>alert(1)</script>"
+    seed = gtm.js_json({"x": poisoned})
+    check(
+        "js_json keeps </script out of source",
+        "</script" not in seed and "\\u003c" in seed,
+    )
+    check(
+        "js_json round-trips",
+        json.loads(seed)["x"] == poisoned,
     )
 finally:
     shutil.rmtree(fx, ignore_errors=True)

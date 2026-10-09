@@ -19,10 +19,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GEN="$SCRIPT_DIR/gen-team-dashboard.py"
 SRV="$SCRIPT_DIR/dashboard_server.py"
 TMP="$DIR/tmp"
-PIDFILE="$TMP/team-dashboard.pid"
 LOG="$TMP/team-dashboard-server.log"
+# dashboard-control-hardening D4: ONE machine-level owner record for the
+# singleton server (pid + currently observed project) — per-project pidfiles
+# could not express A -> B -> A, and `stop` from another dir missed the server
+STATE_DIR="${HOME}/.local/state/opencode-team"
 
-mkdir -p "$TMP"
+mkdir -p "$TMP" "$STATE_DIR"
 
 cfgget() {
   python3 "$GEN" --cfg "$1" "$DIR"
@@ -30,14 +33,33 @@ cfgget() {
 
 PORT="$(cfgget port)"
 URL="http://127.0.0.1:${PORT}/"
+OWNER="${STATE_DIR}/team-dashboard-${PORT}.json"
 
-running() {
-  # pid alive AND it is our server (never kill a recycled pid)
-  [ -f "$PIDFILE" ] || return 1
-  local pid
-  pid="$(cat "$PIDFILE")"
-  kill -0 "$pid" 2>/dev/null || return 1
-  ps -p "$pid" -o command= 2>/dev/null | grep -q "dashboard_server" || return 1
+owner_field() {  # pid | dir from the owner record, "" if absent
+  [ -f "$OWNER" ] || return 0
+  python3 - "$OWNER" "$1" << 'PYEOF'
+import json, sys
+try:
+    print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))
+except Exception:
+    print("")
+PYEOF
+}
+
+write_owner() {  # pid dir
+  python3 - "$OWNER" "$1" "$2" << 'PYEOF'
+import json, sys, os
+os.makedirs(os.path.dirname(sys.argv[1]), exist_ok=True)
+json.dump({"pid": int(sys.argv[2]), "dir": sys.argv[3]}, open(sys.argv[1], "w"))
+PYEOF
+}
+
+owner_alive() {  # record pid alive AND it is our server (never kill a recycled pid)
+  local p
+  p="$(owner_field pid)"
+  [ -n "$p" ] || return 1
+  kill -0 "$p" 2>/dev/null || return 1
+  ps -p "$p" -o command= 2>/dev/null | grep -q "dashboard_server" || return 1
 }
 
 open_browser() {
@@ -100,27 +122,33 @@ case "$CMD" in
     exec python3 "$GEN" "$DIR"
     ;;
   serve)
-    if running; then
-      echo "dashboard already running (pid $(cat "$PIDFILE")): $URL"
+    if owner_alive && [ "$(owner_field dir)" = "$DIR" ]; then
+      echo "dashboard already running (pid $(owner_field pid), project $(basename "$DIR")): $URL"
       open_browser
       exit 0
     fi
-    # single-dashboard philosophy (D6): a dashboard already serving another
-    # project is re-pointed here instead of failing on the port
+    # singleton: switch back (A -> B -> A), or ADOPT a running dashboard
+    # left by an older per-project-pidfile scheme (no readable owner record)
     if probe_ours; then
       if switch_to "$DIR" && wait_ours; then
-        echo "dashboard re-pointed: $URL (project $(basename "$DIR"))"
+        OPID="$(owner_field pid)"
+        if [ -z "$OPID" ] && command -v lsof >/dev/null 2>&1; then
+          OPID="$(lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | tail -n +2 | awk '{print $2}' | head -1)"
+        fi
+        [ -n "$OPID" ] && write_owner "$OPID" "$DIR"
+        echo "dashboard re-pointed: $URL (pid $OPID, project $(basename "$DIR"))"
         open_browser
         exit 0
       fi
       echo "dashboard: failed to re-point the running dashboard to $DIR" >&2
       exit 1
     fi
+    rm -f "$OWNER"  # stale record
     nohup python3 "$SRV" "$DIR" >"$LOG" 2>&1 &
-    echo $! > "$PIDFILE"
+    write_owner $! "$DIR"
     wait_ours; rc=$?
-    if [ "$rc" -eq 0 ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-      echo "dashboard: $URL (pid $(cat "$PIDFILE"), project $(basename "$DIR"))"
+    if [ "$rc" -eq 0 ] && kill -0 "$(owner_field pid)" 2>/dev/null; then
+      echo "dashboard: $URL (pid $(owner_field pid), project $(basename "$DIR"))"
     elif [ "$rc" -eq 3 ]; then
       echo "dashboard failed: port $PORT serves ANOTHER project's dashboard:" >&2
       # our server names the holder pid on exit; give its log a moment
@@ -135,29 +163,30 @@ case "$CMD" in
         lsof -nP -i :"$PORT" | tail -n +2 >&2
       fi
       echo "stop it first (team-dashboard.sh stop <that-dir>), or set 'port' in $DIR/.opencode/team-dashboard.json" >&2
-      rm -f "$PIDFILE"
+      rm -f "$OWNER"
       exit 1
     else
       echo "dashboard failed to start; log tail:" >&2
       tail -5 "$LOG" >&2
-      rm -f "$PIDFILE"
+      rm -f "$OWNER"
       exit 1
     fi
     ;;
   stop)
-    if running; then
-      pid="$(cat "$PIDFILE")"
-      kill "$pid" 2>/dev/null || true
-      echo "dashboard server stopped (pid $pid)"
+    if owner_alive; then
+      kill "$(owner_field pid)" 2>/dev/null || true
+      echo "dashboard server stopped (pid $(owner_field pid))"
     fi
-    rm -f "$PIDFILE"
-    # final snapshot of the last render for after-the-fact review
-    python3 "$GEN" "$DIR" >/dev/null 2>&1 || true
-    echo "final snapshot: $TMP/team-dashboard.html"
+    OD="$(owner_field dir)"
+    rm -f "$OWNER"
+    # final snapshot of the observed project's last render for after-the-fact review
+    SNAP="${OD:-$DIR}"
+    python3 "$GEN" "$SNAP" >/dev/null 2>&1 || true
+    echo "final snapshot: $SNAP/tmp/team-dashboard.html"
     ;;
   status)
-    if running; then
-      echo "running: $URL (pid $(cat "$PIDFILE"))"
+    if owner_alive; then
+      echo "running: $URL (pid $(owner_field pid), project $(basename "$(owner_field dir)"))"
     else
       echo "stopped; snapshot (if any): $TMP/team-dashboard.html"
     fi

@@ -476,6 +476,17 @@ def adopt_window(dir_, now_ms=None):
 STAGE_STEPS = ["plan", "code", "test", "review", "done"]
 TASK_NUM = re.compile(r"^(\d+(?:\.\d+)?)\.?\s+")
 SUB_ROLES = ("planner", "coder", "tester", "reviewer")
+
+
+def js_json(obj):
+    """JSON for embedding in a script context (dashboard-control-hardening D1).
+
+    '<' is emitted as \\u003c so no '</script' sequence can appear in the
+    page source — model-authored text inside must never terminate the
+    script island. Parses back to the original object at runtime."""
+    return json.dumps(obj).replace("<", "\\u003c")
+
+
 # dashboard-session-control D1/D2: anchored match — "…/opencode --auto" hits,
 # "opencode-fake", "myopencode", "opencode.py" do not (fail closed)
 OPENCODE_PROC = re.compile(r"(^|/)opencode(\s|$)")
@@ -1020,7 +1031,7 @@ def render_html(dir_, d):
     active = d["active"]
     # work-log seed for the client buffer (D4): the server render keeps only
     # the newest 40; localStorage carries the rest across reloads
-    log_seed = json.dumps([{"t": t, "a": a, "x": x[:400]} for t, a, x in d["_texts"]])
+    log_seed = js_json([{"t": t, "a": a, "x": x[:400]} for t, a, x in d["_texts"]])
     log_key = "dash-log:%s:%s" % (
         hashlib.md5(dir_.encode()).hexdigest()[:10],
         START,
@@ -1144,7 +1155,7 @@ const sDel = k => {{ try {{ sessionStorage.removeItem(k); }} catch (e) {{}} }};
 const lGet = k => {{ try {{ return localStorage.getItem(k); }} catch (e) {{ return null; }} }};
 const lSet = (k, v) => {{ try {{ localStorage.setItem(k, v); }} catch (e) {{}} }};
 let tmr = null;
-const SIG = {json.dumps(state_sig(d))};
+const SIG = {js_json(state_sig(d))};
 
 // expansion state survives reloads (dashboard-ux-2 D3): every expandable row
 // carries a stable data-k; open ones are remembered in sessionStorage and
@@ -1231,7 +1242,7 @@ document.addEventListener('click', e => {{
 
 // work-log history across reloads (D4): server keeps the newest 40 entries;
 // localStorage accumulates everything (cap 500) per project + run window
-const LOGKEY = {json.dumps(log_key)};
+const LOGKEY = {js_json(log_key)};
 const LOGSEED = {log_seed};
 const ACOLORS = {json.dumps(AGENT_COLORS)};
 (function logBuffer() {{

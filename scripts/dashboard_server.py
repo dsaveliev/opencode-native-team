@@ -61,7 +61,9 @@ def generation():
         return _gen["data"], _gen["html"]
 
 
-OPENCODE_PROC = re.compile(r"(^|/)opencode(\s|$)")
+# dashboard-control-hardening D3: executable identity, not command line —
+# a renamed/symlinked binary (e.g. /bin/sleep as "opencode") must fail
+IDENTITY_RE = re.compile(r"^opencode(-cli)?$")
 
 
 def switch_target(new_dir):
@@ -81,23 +83,43 @@ def switch_target(new_dir):
     return None
 
 
-def stop_opencode(pid):
-    """SIGTERM a pid only if it is a live opencode process (D2).
+def _exec_identity(pid):
+    """(comm, resolved executable) for a pid.
 
-    Re-verified against the live ps at execution time — stale panel data
-    must never authorize a signal. Returns an error string or None."""
+    comm is the path used at exec (symlinks preserved); the lsof txt entry
+    (first non-dyld) is the RESOLVED binary — a symlink named "opencode"
+    pointing at /bin/sleep therefore resolves to "sleep"."""
+    r = subprocess.run(
+        ["ps", "-p", str(pid), "-o", "comm="], capture_output=True, text=True
+    )
+    comm = r.stdout.strip()
+    txt = ""
+    r2 = subprocess.run(["lsof", "-p", str(pid)], capture_output=True, text=True)
+    for ln in r2.stdout.splitlines():
+        f = ln.split()
+        if len(f) > 3 and f[3] == "txt" and "dyld" not in f[-1]:
+            txt = f[-1]
+            break
+    return comm, txt
+
+
+def stop_opencode(pid):
+    """SIGTERM a pid only if its RESOLVED executable is opencode (D3).
+
+    Re-verified against the live process table at execution time — stale
+    panel data must never authorize a signal. Returns an error string or None."""
     if pid <= 1:
         return "invalid pid"
     if pid == os.getpid():
         return "refusing to stop the dashboard server itself"
-    r = subprocess.run(
-        ["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True
-    )
-    cmd = r.stdout.strip()
-    if not cmd:
+    comm, txt = _exec_identity(pid)
+    if not comm:
         return f"pid {pid} not found"
-    if not OPENCODE_PROC.search(cmd):
-        return f"pid {pid} is not an opencode process"
+    # resolved binary must BE opencode (comm is only the lsof-less fallback);
+    # a symlink named "opencode" -> /bin/sleep resolves to "sleep"
+    ident = os.path.basename(txt or comm)
+    if not IDENTITY_RE.match(ident):
+        return f"pid {pid} is not an opencode process ({ident})"
     try:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
@@ -130,6 +152,17 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path not in ("/control/stop", "/control/switch"):
             self._send(405, b"POST reserved for the control plane\n", "text/plain")
+            return
+        # D2 (dashboard-control-hardening): localhost Host only, before the
+        # body is read — same-origin blocks cross-page reads, this is the
+        # promised defence in depth for the local control surface
+        host = (self.headers.get("Host") or "").strip()
+        if host not in (f"127.0.0.1:{PORT}", f"localhost:{PORT}"):
+            self._send(
+                403,
+                json.dumps({"error": "non-localhost host"}).encode(),
+                "application/json",
+            )
             return
         # D3: JSON content-type is required — an HTML <form> cannot send it,
         # which closes the cross-site form CSRF class without tokens

@@ -240,11 +240,17 @@ session DB + git + openspec tasks, zero dependencies.
   from cwd, CPU time, command) with its recent sessions, a **View** button
   per project (re-points the dashboard's observation to it — one dashboard,
   same port, last switch wins across tabs) and a **Stop** control per
-  process. Stop = SIGTERM after the server re-verifies the target is an
-  opencode process (`POST /control/stop`, JSON content-type required —
-  HTML forms cannot trigger it); the confirmation names the blast radius
-  (all sessions of that process end), and there is no automatic SIGKILL
-  escalation. Observation itself stays read-only.
+  process. Control requests are hardened: localhost `Host` only, JSON
+  content-type required (HTML forms cannot trigger it), and the stop signal
+  is delivered only after the target's *resolved executable* is verified to
+  be opencode — a renamed or symlinked binary (`/bin/sleep` as `opencode`)
+  is refused. The confirmation names the blast radius (all sessions of that
+  process end); there is no automatic SIGKILL escalation. The server is a
+  machine-wide singleton tracked by one owner record
+  (`~/.local/state/opencode-team/team-dashboard-<port>.json`), so
+  switching A → B → A and `stop` from any directory work. Observation
+  itself stays read-only; model-authored text is escaped for script
+  context so it can never break out of the page.
 - Run stage is derived from task progress (plan → code → review → done) and
   never jumps backward when a new wave starts; the instantaneous activity
   rides along as a "now: <role>, wave N" label next to the stepper.
