@@ -1,0 +1,21 @@
+openspec/changes/harness-contract-consistency/design.md
+  s_0404b8eae6cf69::t_3e5d72a18f515a 64-69
+.github/workflows/ci.yml
+  s_0404b8eae6cf69::t_2cf88be444d749 20-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a0f1988f92aeb499604190def823e7c8ae861152",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
