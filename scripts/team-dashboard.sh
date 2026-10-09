@@ -46,20 +46,52 @@ open_browser() {
   command -v xdg-open >/dev/null 2>&1 && xdg-open "$URL"
 }
 
-wait_port() {
-  # up to ~6s for the server to answer (or die with a conflict message)
-  python3 - "$PORT" << 'PYEOF'
-import socket, sys, time
-port = int(sys.argv[1])
+wait_ours() {
+  # 0 = OUR dashboard answers /state with this project's name;
+  # 3 = the port serves ANOTHER project's dashboard (holder's message is
+  #     in the log we just captured); 1 = timeout or our server died
+  python3 - "$PORT" "$(basename "$DIR")" << 'PYEOF'
+import http.client, json, sys, time
+port, want = int(sys.argv[1]), sys.argv[2]
 deadline = time.time() + 6
 while time.time() < deadline:
     try:
-        s = socket.create_connection(("127.0.0.1", port), timeout=0.5)
-        s.close()
-        sys.exit(0)
-    except OSError:
+        c = http.client.HTTPConnection("127.0.0.1", port, timeout=0.5)
+        c.request("GET", "/state")
+        d = json.loads(c.getresponse().read())
+        c.close()
+        sys.exit(0 if d.get("project") == want else 3)
+    except Exception:
         time.sleep(0.25)
 sys.exit(1)
+PYEOF
+}
+
+probe_ours() {
+  # true when a dashboard server (ours) answers on the port
+  python3 - "$PORT" << 'PYEOF'
+import json, sys, urllib.request
+try:
+    with urllib.request.urlopen(f"http://127.0.0.1:{sys.argv[1]}/state", timeout=1.5) as r:
+        sys.exit(0 if "sig" in json.loads(r.read()) else 1)
+except Exception:
+    sys.exit(1)
+PYEOF
+}
+
+switch_to() {
+  # re-point the running dashboard to a directory (D6 single-dashboard)
+  python3 - "$PORT" "$1" << 'PYEOF'
+import json, sys, urllib.request
+req = urllib.request.Request(
+    f"http://127.0.0.1:{sys.argv[1]}/control/switch",
+    data=json.dumps({"dir": sys.argv[2]}).encode(), method="POST",
+    headers={"Content-Type": "application/json"})
+try:
+    with urllib.request.urlopen(req, timeout=8) as r:
+        sys.exit(0 if json.loads(r.read()).get("ok") else 1)
+except Exception:
+    sys.exit(1)
 PYEOF
 }
 
@@ -73,10 +105,38 @@ case "$CMD" in
       open_browser
       exit 0
     fi
+    # single-dashboard philosophy (D6): a dashboard already serving another
+    # project is re-pointed here instead of failing on the port
+    if probe_ours; then
+      if switch_to "$DIR" && wait_ours; then
+        echo "dashboard re-pointed: $URL (project $(basename "$DIR"))"
+        open_browser
+        exit 0
+      fi
+      echo "dashboard: failed to re-point the running dashboard to $DIR" >&2
+      exit 1
+    fi
     nohup python3 "$SRV" "$DIR" >"$LOG" 2>&1 &
     echo $! > "$PIDFILE"
-    if wait_port; then
-      echo "dashboard: $URL (pid $(cat "$PIDFILE"))"
+    wait_ours; rc=$?
+    if [ "$rc" -eq 0 ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "dashboard: $URL (pid $(cat "$PIDFILE"), project $(basename "$DIR"))"
+    elif [ "$rc" -eq 3 ]; then
+      echo "dashboard failed: port $PORT serves ANOTHER project's dashboard:" >&2
+      # our server names the holder pid on exit; give its log a moment
+      i=0
+      while [ $i -lt 8 ] && ! grep -q "already in use" "$LOG" 2>/dev/null; do
+        sleep 0.5
+        i=$((i + 1))
+      done
+      if grep -q "already in use" "$LOG" 2>/dev/null; then
+        tail -2 "$LOG" >&2
+      elif command -v lsof >/dev/null 2>&1; then
+        lsof -nP -i :"$PORT" | tail -n +2 >&2
+      fi
+      echo "stop it first (team-dashboard.sh stop <that-dir>), or set 'port' in $DIR/.opencode/team-dashboard.json" >&2
+      rm -f "$PIDFILE"
+      exit 1
     else
       echo "dashboard failed to start; log tail:" >&2
       tail -5 "$LOG" >&2

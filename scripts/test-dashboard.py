@@ -29,6 +29,7 @@ def check(name, cond):
 
 
 fx = tempfile.mkdtemp(prefix="dash-fixture-")
+TPORT = 20000 + (os.getpid() % 20000)  # hermetic serve test port
 try:
     os.makedirs(os.path.join(fx, ".opencode"))
     os.makedirs(os.path.join(fx, "openspec", "changes", "alpha"))
@@ -65,9 +66,10 @@ try:
         "# Tasks\n\n" + "".join(f"- [x] {i}. old archived task\n" for i in range(40))
     )
 
-    # config: refresh 15, no browser, coverage off (no Go in CI)
+    # config: refresh 15, no browser, coverage off (no Go in CI), fixed port
     open(os.path.join(fx, ".opencode", "team-dashboard.json"), "w").write(
-        '{"mode": "always", "refresh": 15, "open_browser": false, "coverage_ttl": 0}'
+        '{"mode": "always", "refresh": 15, "open_browser": false, '
+        f'"coverage_ttl": 0, "port": {TPORT}}}'
     )
 
     # code files: main + second (forces the old wc "total" double-count bug)
@@ -177,6 +179,128 @@ try:
         check(f"export section: {section}", section in r3.stdout)
     check("export has task titles", "engine todo thing" in r3.stdout)
 
+    # serve-conflict regression (review C1, live qc-fop/qc-item-first
+    # defect): a second project on the same fixed port must fail loudly
+    # naming the holder — never report success off the OTHER server
+    fx2 = tempfile.mkdtemp(prefix="dash-fixture2-")
+    os.makedirs(os.path.join(fx2, ".opencode"))
+    open(os.path.join(fx2, ".opencode", "team-dashboard.json"), "w").write(
+        '{"mode": "always", "refresh": 15, "open_browser": false, '
+        f'"coverage_ttl": 0, "port": {TPORT}}}'
+    )
+    TDSH = os.path.join(ROOT, "scripts", "team-dashboard.sh")
+    try:
+        ra = subprocess.run(
+            ["bash", TDSH, "serve", fx], capture_output=True, text=True, timeout=30
+        )
+        check(
+            "serve A starts with project name",
+            ra.returncode == 0 and "dashboard:" in ra.stdout and "project" in ra.stdout,
+        )
+        rb = subprocess.run(
+            ["bash", TDSH, "serve", fx2], capture_output=True, text=True, timeout=30
+        )
+        check(
+            "serve B re-points the single dashboard",
+            rb.returncode == 0 and "re-pointed" in rb.stdout,
+        )
+        import urllib.request
+
+        with urllib.request.urlopen(f"http://127.0.0.1:{TPORT}/state", timeout=8) as r:
+            sproj = json.loads(r.read()).get("project")
+        check("re-pointed /state shows project2", sproj == os.path.basename(fx2))
+        check(
+            "serve B leaves no stale pidfile",
+            not os.path.exists(os.path.join(fx2, "tmp", "team-dashboard.pid")),
+        )
+
+        # control plane battery (dashboard-session-control D2/D3)
+        import json as _json
+        import urllib.error
+        import urllib.request
+
+        def post(url, body=None, ctype="application/json"):
+            data = (
+                body
+                if isinstance(body, bytes)
+                else (_json.dumps(body).encode() if body is not None else b"{}")
+            )
+            req = urllib.request.Request(
+                url,
+                data=data,
+                method="POST",
+                headers={"Content-Type": ctype} if ctype else {},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    return r.status, _json.loads(r.read() or b"{}")
+            except urllib.error.HTTPError as e:
+                raw = e.read()
+                try:
+                    return e.code, _json.loads(raw or b"{}")
+                except Exception:
+                    return e.code, {"_raw": raw.decode("utf-8", "replace")}
+
+        B = f"http://127.0.0.1:{TPORT}"
+        st, j = post(B + "/control/stop", b"pid=1", "text/plain")
+        check(
+            "non-JSON refused 400", st == 400 and "Content-Type" in j.get("error", "")
+        )
+        st, j = post(B + "/control/stop", {"nope": 1})
+        check("bad body 400", st == 400)
+        sl = subprocess.Popen(["sleep", "30"])
+        time.sleep(0.2)
+        st, j = post(B + "/control/stop", {"pid": sl.pid})
+        check(
+            "sleep pid refused 403",
+            st == 403 and "not an opencode" in j.get("error", ""),
+        )
+        sl.kill()
+        sl.wait()
+        fk = subprocess.Popen(["bash", "-c", "exec -a opencode-fake sleep 30"])
+        time.sleep(0.3)
+        st, j = post(B + "/control/stop", {"pid": fk.pid})
+        check("argv0 fake refused 403", st == 403)
+        fk.kill()
+        fk.wait()
+        ocdir = tempfile.mkdtemp(prefix="dash-oc-")
+        oclink = os.path.join(ocdir, "opencode")
+        os.symlink("/bin/sleep", oclink)
+        oc = subprocess.Popen([oclink, "30"])
+        time.sleep(0.3)
+        st, j = post(B + "/control/stop", {"pid": oc.pid})
+        check(
+            "verified opencode stop 200",
+            st == 200 and j.get("ok") is True and j.get("alive_after") is False,
+        )
+        oc.wait(timeout=5)
+        st, j = post(B + "/control/stop", {"pid": 999999})
+        check(
+            "unknown pid 403",
+            st == 403 and "not found" in j.get("error", ""),
+        )
+        st, _j = post(B + "/other", {"pid": 1})
+        check("other POST 405", st == 405)
+        # observation switching (D6 single-dashboard pivot)
+        st, j = post(B + "/control/switch", {"dir": fx2})
+        check("switch 200", st == 200 and j.get("ok") is True)
+        html2 = urllib.request.urlopen(B + "/", timeout=8).read().decode()
+        check(
+            "switched page shows project2",
+            f"team dashboard — {os.path.basename(fx2)}" in html2,
+        )
+        st, j = post(B + "/control/switch", {"dir": "/no/such/dir-xyz"})
+        check(
+            "switch bad dir refused",
+            st == 403 and "no such" in j.get("error", ""),
+        )
+        st, j = post(B + "/control/switch", {"pid": 5})
+        check("switch bad body 400", st == 400)
+        shutil.rmtree(ocdir, ignore_errors=True)
+    finally:
+        subprocess.run(["bash", TDSH, "stop", fx], capture_output=True, timeout=30)
+        shutil.rmtree(fx2, ignore_errors=True)
+
     # --- dashboard-ux-2: stage model, task tree, panels, anchors ---
     # macro stage from task progress: 2/5 done -> code (never role-derived)
     check("macro stage=code from progress", 'class="step cur">code' in page)
@@ -204,6 +328,15 @@ try:
     check("log rows keyed", 'data-k="cmt:' in page)
     check("expansion JS present", "applyKeys" in page and "dash-open" in page)
     check("log buffer JS present", "LOGSEED" in page and "dash-log:" in page)
+    # dashboard-session-control: sessions & instances panel
+    check(
+        "sessions panel present",
+        'id="panel-sessions"' in page and "Sessions &amp; instances" in page,
+    )
+    check(
+        "stop rails caption",
+        "SIGTERM to a verified opencode process" in page,
+    )
 
     # --- dashboard-ux-2 unit phase: pure stage/wave/span functions ---
     import importlib.util
@@ -268,6 +401,16 @@ try:
     check(
         "plain error is not a denial",
         gtm.denial_of({"status": "error", "error": "exit status 1"}) is None,
+    )
+    # process match is anchored (dashboard-session-control D1/D2)
+    RX = gtm.OPENCODE_PROC
+    check(
+        "proc regex anchored",
+        bool(RX.search("/opt/homebrew/bin/opencode --auto"))
+        and bool(RX.search("opencode"))
+        and not RX.search("opencode-fake sleep 30")
+        and not RX.search("myopencode x")
+        and not RX.search("python opencode.py"),
     )
 finally:
     shutil.rmtree(fx, ignore_errors=True)

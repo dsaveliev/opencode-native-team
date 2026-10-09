@@ -217,9 +217,14 @@ session DB + git + openspec tasks, zero dependencies.
 - Launch channels: `/team` and `/team-change` start/stop the dashboard
   automatically per mode (script resolved project-local first, then the
   global copy). Out-of-band: `team-dash` (installed onto PATH by
-  `install.sh`) takes no arguments from any terminal — it finds the most
-  recently active run and never touches the session itself, so it is safe
-  mid-run. Manual: `.opencode/scripts/team-dashboard.sh
+  `install.sh`) never asks questions and never touches the session itself,
+  so it is safe mid-run: with a directory argument it points the dashboard
+  there, without arguments it opens the freshest active run. One dashboard
+  per machine on the fixed port — switching projects happens in the
+  dashboard UI (View buttons in the Sessions & instances panel); if a run's
+  pre-flight finds the dashboard already serving another project, it is
+  re-pointed, not conflicted. A port held by a non-dashboard process still
+  fails loudly naming the holder. Manual: `.opencode/scripts/team-dashboard.sh
   serve|stop|once|status <dir>`.
 - Port already occupied = hard error naming the holding PID (set `port`
   per project to run two dashboards side by side). After `stop` the final
@@ -231,6 +236,15 @@ session DB + git + openspec tasks, zero dependencies.
   beside the work log (tool, agent, time, failing input excerpt). Optional
   test-coverage card is opt-in via `coverage_ttl` (seconds; 0/off by
   default — the tick must not race the tester agent).
+- Sessions & instances panel: every running opencode process (pid, project
+  from cwd, CPU time, command) with its recent sessions, a **View** button
+  per project (re-points the dashboard's observation to it — one dashboard,
+  same port, last switch wins across tabs) and a **Stop** control per
+  process. Stop = SIGTERM after the server re-verifies the target is an
+  opencode process (`POST /control/stop`, JSON content-type required —
+  HTML forms cannot trigger it); the confirmation names the blast radius
+  (all sessions of that process end), and there is no automatic SIGKILL
+  escalation. Observation itself stays read-only.
 - Run stage is derived from task progress (plan → code → review → done) and
   never jumps backward when a new wave starts; the instantaneous activity
   rides along as a "now: <role>, wave N" label next to the stepper.

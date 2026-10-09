@@ -50,7 +50,9 @@ CJK = re.compile(
     r"\uac00-\ud7af\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef"
     r"\U00020000-\U0003ffff]"
 )
-RU_ALLOWED = []  # repo is English-only; historical Russian docs live in git history
+# repo is English-only for authored content; generated RUN-LOG.md files are
+# data — observed session titles legitimately arrive in any language
+RU_ALLOWED = ["openspec/changes/*/RUN-LOG.md", "openspec/changes/archive/*/RUN-LOG.md"]
 # paths that docs may name; anything matching must exist on disk.
 # Only repo-tree dirs; bare filenames and .opencode/* are target-project files.
 DOC_PATH = re.compile(

@@ -476,6 +476,79 @@ def adopt_window(dir_, now_ms=None):
 STAGE_STEPS = ["plan", "code", "test", "review", "done"]
 TASK_NUM = re.compile(r"^(\d+(?:\.\d+)?)\.?\s+")
 SUB_ROLES = ("planner", "coder", "tester", "reviewer")
+# dashboard-session-control D1/D2: anchored match — "…/opencode --auto" hits,
+# "opencode-fake", "myopencode", "opencode.py" do not (fail closed)
+OPENCODE_PROC = re.compile(r"(^|/)opencode(\s|$)")
+
+
+def _proc_cwd(pid):
+    """Working directory of a pid (lsof cwd line), or ''."""
+    try:
+        r = subprocess.run(["lsof", "-p", str(pid)], capture_output=True, text=True)
+    except Exception:
+        return ""
+    for ln in r.stdout.splitlines():
+        f = ln.split()
+        if len(f) > 8 and f[3] == "cwd":
+            return f[-1]
+    return ""
+
+
+def recent_session_briefs(dir2, now_ms):
+    """Up to 5 recently-active sessions of a directory (6h horizon)."""
+    if not dir2:
+        return []
+    try:
+        con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+        rows = con.execute(
+            "SELECT title, agent, time_updated, tokens_input, tokens_output, "
+            "tokens_reasoning FROM session WHERE directory = ? AND time_updated >= ? "
+            "ORDER BY time_updated DESC LIMIT 5",
+            (dir2, now_ms - 6 * 3600_000),
+        ).fetchall()
+        con.close()
+    except Exception:
+        return []
+    return [
+        {
+            "title": (t or "")[:40],
+            "agent": a or "?",
+            "updated": u,
+            "tok": fmt_k((i or 0) + (o or 0) + (rr or 0)),
+        }
+        for t, a, u, i, o, rr in rows
+    ]
+
+
+def opencode_processes(now_ms):
+    """Live opencode processes with cwd and hosted sessions (D1).
+
+    The controllable unit is the host process: TUIs listen on no TCP port,
+    so no per-session API exists; sessions map by directory + activity."""
+    out = sh("ps -eo pid,etime,time,command", ".")
+    briefs = {}
+    procs = []
+    for ln in out.splitlines()[1:]:
+        f = ln.split(None, 3)  # pid, etime, time, FULL command (rest of line)
+        if len(f) < 4 or not OPENCODE_PROC.search(f[3]):
+            continue
+        pid, etime, cpu, cmd = f[0], f[1], f[2], f[3]
+        cwd = _proc_cwd(pid)
+        if cwd not in briefs:
+            briefs[cwd] = recent_session_briefs(cwd, now_ms)
+        procs.append(
+            {
+                "pid": int(pid),
+                "cwd": cwd,
+                "project": os.path.basename(cwd) if cwd else "?",
+                "etime": etime,
+                "cpu": cpu,
+                "cmd": cmd[:60],
+                "sessions": briefs[cwd],
+            }
+        )
+    procs.sort(key=lambda p: p["pid"])
+    return procs
 
 
 def compute_stage(sessions, done, total, now_ms):
@@ -659,6 +732,42 @@ def collect_data(dir_):
     # per-top-level-task timing + median projection (D6)
     task_meta, med = task_spans(sessions, task_changes, now_ms)
 
+    # sessions & instances panel (dashboard-session-control D1)
+    procs = opencode_processes(now_ms)
+    procs_rows = ""
+    for p in procs:
+        sess = (
+            " ".join(
+                f"<span class=ss>{agent_badge(s['agent'])}{html.escape(s['title'])}"
+                f" <span class=muted>{s['tok']}</span></span>"
+                for s in p["sessions"]
+            )
+            or "<span class=muted>&mdash;</span>"
+        )
+        badge = (
+            ' <span class=badge style="border-color:var(--acc)">this project</span>'
+            if p["cwd"] == dir_
+            else ""
+        )
+        procs_rows += (
+            f"<tr><td class=num>{p['pid']}</td>"
+            f"<td><b>{html.escape(p['project'])}</b>{badge}</td>"
+            f"<td class=num>{p['etime']}</td><td class=num>{p['cpu']}</td>"
+            f"<td class=muted>{html.escape(p['cmd'])}</td><td>{sess}</td>"
+            f'<td style="white-space:nowrap">'
+            + (
+                f'<button class="viewbtn" data-cwd="{html.escape(p["cwd"])}">View</button> '
+                if p["cwd"]
+                else ""
+            )
+            + f'<button class="stopbtn" data-pid="{p["pid"]}" '
+            f'data-proj="{html.escape(p["project"])}">Stop</button></td></tr>'
+        )
+    procs_html = (
+        procs_rows
+        or "<tr><td colspan=7 class=muted>no opencode processes running</td></tr>"
+    )
+
     eta = "no ETA yet"
     if med is not None:
         eta = f"~{round((med / 60000) * (total - done))} min left"
@@ -800,6 +909,8 @@ def collect_data(dir_):
         "task_meta": task_meta,
         "errs": errs,
         "denials": denials,
+        "procs": procs,
+        "procs_html": procs_html,
     }
 
 
@@ -807,7 +918,8 @@ def state_sig(d):
     """Cheap change signature: poller compares this before reloading."""
     return (
         f"{len(d['sessions'])}:{d['done']}/{d['total']}:"
-        f"{len(d['commits_t'])}:{int(d['last_act'])}"
+        f"{len(d['commits_t'])}:{int(d['last_act'])}:"
+        + ",".join(str(p["pid"]) for p in d.get("procs", ()))
     )
 
 
@@ -904,6 +1016,7 @@ def render_html(dir_, d):
     agent_rows = d["agent_rows"]
     task_html, log_html, commits_list = d["task_html"], d["log_html"], d["commits_list"]
     err_html, now_label, nerr = d["err_html"], d["now_label"], d["nerr"]
+    procs_html = d["procs_html"]
     active = d["active"]
     # work-log seed for the client buffer (D4): the server render keeps only
     # the newest 40; localStorage carries the rest across reloads
@@ -943,7 +1056,14 @@ def render_html(dir_, d):
  h2{{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:2px 0 8px}}
  table{{border-collapse:collapse;width:100%}} td,th{{padding:4px 8px;border-bottom:1px solid var(--grid);text-align:left;font-size:12.5px}}
  td.num{{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}}
- .live{{color:var(--acc);font-weight:600}}
+  .live{{color:var(--acc);font-weight:600}}
+  .stopbtn{{font-family:inherit;font-size:11px;padding:2px 10px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:#b91c1c;cursor:pointer}}
+  .stopbtn:hover{{border-color:#b91c1c;background:#b91c1c;color:#fff}}
+  .stopbtn:disabled{{opacity:.5;cursor:default}}
+  .viewbtn{{font-family:inherit;font-size:11px;padding:2px 10px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--acc);cursor:pointer;margin-right:2px}}
+  .viewbtn:hover{{border-color:var(--acc)}} .viewbtn:disabled{{opacity:.5;cursor:default}}
+  .ss{{display:inline-block;margin:1px 6px 1px 0;white-space:nowrap;font-size:11.5px}}
+  #ctl{{position:fixed;bottom:14px;right:14px;max-width:420px;padding:8px 12px;border-radius:6px;background:var(--fg);color:var(--bg);font:600 12px ui-monospace,monospace;z-index:99;box-shadow:0 2px 8px rgba(0,0,0,.25)}}
  .feed{{max-height:300px;overflow-y:auto;font-family:ui-monospace,monospace;font-size:11.5px}}
  .ev{{padding:3px 0;border-bottom:1px solid var(--grid);display:flex;gap:8px;align-items:baseline}}
  .ev .t{{color:var(--muted);white-space:nowrap;min-width:56px;display:inline-block;text-align:right}} .ev .ag{{font-weight:600;min-width:150px;white-space:nowrap}}
@@ -987,6 +1107,9 @@ def render_html(dir_, d):
   <span class=muted style="margin-left:10px">now: {html.escape(now_label)}</span></div>
  <div class=panel><h2>Activity — sessions &amp; commits (wall clock)</h2>{activity_chart(SESSIONS, COMMITS_T, d["commits_m"], START, NOW)}</div>
  <div class="panel" id="panel-agents"><h2>Agents</h2><table><tr><th>agent</th><th>sessions</th><th>spawned</th><th>model</th><th>in</th><th>out</th><th>last</th><th>state</th></tr>{agent_rows}</table></div>
+ <div class="panel" id="panel-sessions"><h2>Sessions &amp; instances</h2><table>
+  <tr><th>pid</th><th>project</th><th>up</th><th>cpu</th><th>command</th><th>sessions (6h)</th><th></th></tr>{procs_html}</table>
+  <div class=muted style="margin-top:6px">Stop = SIGTERM to a verified opencode process; all its sessions end. No automatic escalation.</div></div>
  <div class=row2>
   <div class="panel" id="panel-tasks"><h2>Tasks ({DONE}/{TOTAL})</h2>{task_html or "<div class=muted>no openspec tasks found</div>"}</div>
   <div class="panel" id="panel-commits"><h2>Commits</h2><div class=feed>{commits_list}</div></div>
@@ -1053,6 +1176,58 @@ document.addEventListener('toggle', e => {{
   if (t.tagName === 'DETAILS' && t.hasAttribute('data-k')) recordKey(t, t.open);
 }}, true);
 applyKeys();
+
+// control plane (dashboard-session-control D2/D3): Stop = SIGTERM to a
+// verified opencode process; confirmation names the blast radius
+function ctlBanner(t, bad) {{
+  const old = document.getElementById('ctl'); if (old) old.remove();
+  const b = document.createElement('div');
+  b.id = 'ctl';
+  if (bad) b.style.background = '#b91c1c', b.style.color = '#fff';
+  b.textContent = t;
+  document.body.appendChild(b);
+  setTimeout(() => b.remove(), 6000);
+}}
+document.addEventListener('click', e => {{
+  const v = e.target.closest && e.target.closest('.viewbtn');
+  if (v) {{  // D6: re-point the single dashboard to this project (read-only)
+    v.disabled = true;
+    fetch('/control/switch', {{
+      method: 'POST',
+      headers: {{'Content-Type': 'application/json'}},
+      body: JSON.stringify({{dir: v.getAttribute('data-cwd')}})
+    }})
+      .then(r => r.json().then(j => ({{ok: r.ok, j}})).catch(() => ({{ok: r.ok, j: {{}}}})))
+      .then(({{ok, j}}) => {{
+        if (ok) location.reload();
+        else {{ ctlBanner('switch refused: ' + (j.error || 'HTTP error'), true); v.disabled = false; }}
+      }})
+      .catch(e2 => {{ ctlBanner('switch error: ' + e2, true); v.disabled = false; }});
+    return;
+  }}
+  const btn = e.target.closest && e.target.closest('.stopbtn');
+  if (!btn) return;
+  const pid = btn.getAttribute('data-pid'), proj = btn.getAttribute('data-proj');
+  if (!confirm('Stop opencode pid ' + pid + ' (' + proj + ')?\\n' +
+               'ALL its sessions end (SIGTERM, no escalation).')) return;
+  btn.disabled = true; btn.textContent = '...';
+  fetch('/control/stop', {{
+    method: 'POST',
+    headers: {{'Content-Type': 'application/json'}},
+    body: JSON.stringify({{pid: Number(pid)}})
+  }})
+    .then(r => r.json().then(j => ({{ok: r.ok, j}})).catch(() => ({{ok: r.ok, j: {{}}}})))
+    .then(({{ok, j}}) => {{
+      if (!ok) ctlBanner('refused: ' + (j.error || 'HTTP error'), true);
+      else if (j.alive_after) ctlBanner('warn: pid ' + pid + ' still alive after SIGTERM', true);
+      else ctlBanner('stopped pid ' + pid + ' (' + proj + ')', false);
+      btn.disabled = false; btn.textContent = 'Stop';
+    }})
+    .catch(e => {{
+      ctlBanner('error: ' + e, true);
+      btn.disabled = false; btn.textContent = 'Stop';
+    }});
+}});
 
 // work-log history across reloads (D4): server keeps the newest 40 entries;
 // localStorage accumulates everything (cap 500) per project + run window
