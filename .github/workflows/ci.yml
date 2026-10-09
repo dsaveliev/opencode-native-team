@@ -17,6 +17,8 @@ jobs:
           python-version: "3.12"
       - run: pip install pyyaml
       - run: python3 scripts/validate.py
-      # spec drift is a CI failure: pinned CLI, bumps are deliberate PRs
-      - run: npm i -g openspec@1.14.0
+      # spec drift is a CI failure: the CLI ships as the scoped npm package
+      # @fission-ai/openspec (the bare "openspec" package is unrelated);
+      # pinned version, bumps are deliberate PRs
+      - run: npm i -g @fission-ai/openspec@1.14.0
       - run: openspec validate --specs

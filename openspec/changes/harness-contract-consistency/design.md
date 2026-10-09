@@ -61,9 +61,12 @@ default via marker replacement). `test-gen-run-brief.py` gains a
 ### D5: Wire everything into CI
 
 `validate.py` step [7] additionally runs `test-gen-run-brief.py`. CI
-gains a second step: `npm i -g openspec@1.14.0 && openspec validate
---specs` (pin = the locally verified CLI; bump is a deliberate change).
-Pinned because an unpinned CLI can fail PRs on unrelated release churn.
+gains a second step: `npm i -g @fission-ai/openspec@1.14.0 && openspec
+validate --specs`. The CLI ships as the **scoped** package
+`@fission-ai/openspec` — the bare `openspec` npm package is unrelated
+(only a stub version), and Homebrew installs the same scoped package
+under the `openspec` binary name. Pinned because an unpinned CLI can
+fail PRs on unrelated release churn; a version bump is a deliberate PR.
 
 ### D6: Amartifact honesty
 
