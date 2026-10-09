@@ -1,0 +1,52 @@
+openspec/changes/dashboard-control-hardening/specs/run-dashboard/spec.md
+  s_0404b8eae6cf69::t_8da6f1b8b10d16 1-22,29-91
+  s_0404b8eae6cf69::t_30e7a763ff875e 23-28
+openspec/changes/dashboard-control-hardening/design.md
+  s_0404b8eae6cf69::t_909af05df7f4e8 1-14,19-56,72-94
+  s_0404b8eae6cf69::t_5ca34737beadc6 57-71
+  s_0404b8eae6cf69::t_2d84e050ee48ca 15-18
+openspec/changes/dashboard-control-hardening/tasks.md
+  s_0404b8eae6cf69::t_87fd80683b78e4 5,10,13,18,26,30,33,39-55
+  s_0404b8eae6cf69::t_fe8fab81ce87b8 1-4,6-9,11-12,14-17,19-25,27-29,31-32,34-38
+scripts/test-dashboard.py
+  s_0404b8eae6cf69::t_a7326564d19319 293-316
+  s_0404b8eae6cf69::t_c620bf50605ab1 213-214
+  s_0404b8eae6cf69::t_3faba1fa7ed197 281
+  s_0404b8eae6cf69::t_52c84d0e1758d1 212,215-221,223-224,231,237-239,251-256,278-279,288-289,291-292,324,339-360,362
+  s_0404b8eae6cf69::t_3006f04356307a 478-488
+scripts/team-dashboard.sh
+  s_0404b8eae6cf69::t_4c4231d6ea4a74 23-26,28,36,38-62
+  s_0404b8eae6cf69::t_1e138ab9214459 125-126,130-131,134-139
+  s_0404b8eae6cf69::t_dac71807d44a3a 146,148,150-151,166,171,176-178,180-185,188-189
+openspec/changes/dashboard-control-hardening/proposal.md
+  s_0404b8eae6cf69::t_1058b99173fd9c 1-65
+README.md
+  s_0404b8eae6cf69::t_6562853a6eae38 243-253
+scripts/gen-team-dashboard.py
+  s_0404b8eae6cf69::t_9942e1cc188573 479-489
+  s_0404b8eae6cf69::t_954095cfdc2f6c 1034
+  s_0404b8eae6cf69::t_be7bdfa134f625 1245
+scripts/dashboard_server.py
+  s_0404b8eae6cf69::t_d695beb5563a68 86-105,107,109-110,115,118-122
+  s_0404b8eae6cf69::t_068fd6856de9e6 116
+  s_0404b8eae6cf69::t_92bb5579cce655 156-166
+  s_0404b8eae6cf69::t_e9749f0ec206e7 64-66
+openspec/changes/dashboard-control-hardening/.openspec.yaml
+  s_0404b8eae6cf69::t_14640a4e24697e 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "8ba655874fd7458603ff10700b508908198b89fd",
+  "prompts": {},
+  "sessions": {
+    "s_0404b8eae6cf69": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ee97f4067ffeQNLrV6JF4gecaK",
+        "model": "glm-5.3"
+      },
+      "human_author": "Dima Savelyev <dmitrii.savelyev@deliveryhero.com>"
+    }
+  }
+}
